@@ -1,6 +1,6 @@
 <?php
 // file: users/logout.php
-session_start();
+require_once '../config/bootstrap.php';
 
 // Hapus semua data session user
 $_SESSION = array();

@@ -1,7 +1,6 @@
 <?php
 // file: admin/proses_login_admin.php
-session_start();
-
+require_once '../config/bootstrap.php';
 require_once '../config/koneksi.php';
 require_once '../config/csrf.php';
 require_once '../config/security.php';

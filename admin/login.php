@@ -1,6 +1,6 @@
 <?php
 // file: admin/login.php
-session_start();
+require_once '../config/bootstrap.php';
 require_once '../config/csrf.php';
 
 if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true) {

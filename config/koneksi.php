@@ -1,7 +1,8 @@
 <?php
-//file: config/koneksi.php
+// file: config/koneksi.php
+// Load environment variables dan setup database connection.
+// Requires bootstrap.php sudah diinclude sebelumnya.
 
-require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/env.php';
 loadEnv(__DIR__ . '/../.env');
 
