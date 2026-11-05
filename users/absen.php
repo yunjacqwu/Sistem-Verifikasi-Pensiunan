@@ -1,6 +1,6 @@
 <?php
 // file: users/absen.php
-session_start();
+require_once '../config/bootstrap.php';
 require_once '../config/koneksi.php';
 require_once '../config/crypto.php';
 

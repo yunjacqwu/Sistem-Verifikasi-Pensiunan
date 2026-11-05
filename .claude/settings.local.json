@@ -8,7 +8,22 @@
       "PowerShell($php='C:\\\\xampp\\\\php\\\\php.exe'; $files=@\\('users\\\\notifikasi.php','admin\\\\data_pensiunan.php','admin\\\\proses_tambah_pensiunan.php','admin\\\\proses_reset_pin.php','admin\\\\proses_import_pensiunan.php','admin\\\\import_pensiunan.php','config\\\\csrf.php','config\\\\security.php'\\); foreach\\($f in $files\\){& $php -l $f; if\\($LASTEXITCODE -ne 0\\){exit $LASTEXITCODE}})",
       "PowerShell($php='C:\\\\xampp\\\\php\\\\php.exe'; & $php -l 'admin\\\\proses_tambah_pensiunan.php'; if\\($LASTEXITCODE -ne 0\\){exit $LASTEXITCODE}; & $php -l 'admin\\\\proses_reset_pin.php'; exit $LASTEXITCODE)",
       "PowerShell($php='C:\\\\xampp\\\\php\\\\php.exe'; $files=@\\('users\\\\login.php','users\\\\proses_login_user.php','users\\\\proses_ganti_pin.php','users\\\\dashboard.php'\\); foreach\\($f in $files\\){& $php -l $f; if\\($LASTEXITCODE -ne 0\\){exit $LASTEXITCODE}})",
-      "PowerShell(& 'C:\\\\xampp\\\\php\\\\php.exe' -l 'admin\\\\riwayat_absen.php'; exit $LASTEXITCODE)"
+      "PowerShell(& 'C:\\\\xampp\\\\php\\\\php.exe' -l 'admin\\\\riwayat_absen.php'; exit $LASTEXITCODE)",
+      "Bash(php *)",
+      "Bash(/c/xampp/php/php.exe *)",
+      "Bash(cat)",
+      "Bash(chmod +x /tmp/verify_php.sh)",
+      "Bash(/tmp/verify_php.sh)",
+      "Bash(chmod +x /tmp/full_verify.sh)",
+      "Bash(/tmp/full_verify.sh)",
+      "Bash(chmod +x /tmp/final_check.sh)",
+      "Bash(/tmp/final_check.sh)",
+      "Bash(chmod +x /tmp/critical_check.sh)",
+      "Bash(/tmp/critical_check.sh)",
+      "Bash(chmod +x /tmp/git_status.sh)",
+      "Bash(/tmp/git_status.sh)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

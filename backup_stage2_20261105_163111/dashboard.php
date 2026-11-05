@@ -3,6 +3,7 @@
 session_start();
 require_once '../config/koneksi.php';
 require_once '../config/crypto.php';
+require_once '../config/csrf.php';
 
 if (!isset($_SESSION['user_logged_in']) || $_SESSION['user_logged_in'] !== true) {
     header("Location: login.php");
@@ -95,7 +96,10 @@ try {
     $periode_kuartal = $kuartal_map[$kuartal_no] . ' ' . $tahun . ')';
 
 } catch (PDOException $e) {
-    die("Gagal memuat data: " . $e->getMessage());
+    // Detail exception tetap di server log; jangan tampilkan SQL/schema ke pengguna.
+    error_log('Dashboard data load failed: ' . $e->getMessage());
+    http_response_code(500);
+    die('Gagal memuat data. Silakan coba kembali beberapa saat lagi.');
 }
 
 $page_title = 'Dashboard';
@@ -325,15 +329,15 @@ $page_title = 'Dashboard';
             <div id="form-pin">
                 <div class="space-y-4">
                     <div>
-                        <label class="text-xs font-bold text-slate-600 block mb-1.5">PIN Baru (4 digit angka)</label>
-                        <input type="password" id="pin_baru" maxlength="4" inputmode="numeric"
-                               placeholder="••••"
+                        <label class="text-xs font-bold text-slate-600 block mb-1.5">PIN Baru (6 digit angka)</label>
+                        <input type="password" id="pin_baru" maxlength="6" inputmode="numeric"
+                               placeholder="••••••"
                                class="w-full px-4 py-3 border border-slate-300 rounded-xl text-center text-2xl font-mono tracking-[1em] focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
                     <div>
-                        <label class="text-xs font-bold text-slate-600 block mb-1.5">Konfirmasi PIN Baru</label>
-                        <input type="password" id="pin_konfirmasi" maxlength="4" inputmode="numeric"
-                               placeholder="••••"
+                        <label class="text-xs font-bold text-slate-600 block mb-1.5">Konfirmasi PIN Baru (6 digit)</label>
+                        <input type="password" id="pin_konfirmasi" maxlength="6" inputmode="numeric"
+                               placeholder="••••••"
                                class="w-full px-4 py-3 border border-slate-300 rounded-xl text-center text-2xl font-mono tracking-[1em] focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
                 </div>
@@ -371,8 +375,8 @@ function submitGantiPin() {
     error_div.classList.add('hidden');
     error_div.textContent = '';
 
-    if (pin_baru.length !== 4 || !/^\d{4}$/.test(pin_baru)) {
-        error_div.textContent = 'PIN harus berupa 4 digit angka.';
+    if (pin_baru.length !== 6 || !/^\d{6}$/.test(pin_baru)) {
+        error_div.textContent = 'PIN harus berupa 6 digit angka.';
         error_div.classList.remove('hidden');
         return;
     }
@@ -384,8 +388,8 @@ function submitGantiPin() {
 
     fetch('proses_ganti_pin.php', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin_baru: pin_baru })
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '<?= csrf_token(); ?>' },
+        body: JSON.stringify({ pin_baru: pin_baru, csrf_token: '<?= csrf_token(); ?>' })
     })
     .then(r => r.json())
     .then(data => {
