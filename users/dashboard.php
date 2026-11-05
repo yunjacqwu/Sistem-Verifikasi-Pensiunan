@@ -1,6 +1,6 @@
 <?php
 // file: users/dashboard.php
-session_start();
+require_once '../config/bootstrap.php';
 require_once '../config/koneksi.php';
 require_once '../config/crypto.php';
 require_once '../config/csrf.php';
@@ -96,7 +96,10 @@ try {
     $periode_kuartal = $kuartal_map[$kuartal_no] . ' ' . $tahun . ')';
 
 } catch (PDOException $e) {
-    die("Gagal memuat data: " . $e->getMessage());
+    // Detail exception tetap di server log; jangan tampilkan SQL/schema ke pengguna.
+    error_log('Dashboard data load failed: ' . $e->getMessage());
+    http_response_code(500);
+    die('Gagal memuat data. Silakan coba kembali beberapa saat lagi.');
 }
 
 $page_title = 'Dashboard';

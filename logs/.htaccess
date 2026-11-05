@@ -1,3 +1,2 @@
-# file: logs/.htaccess
-Order allow,deny
-Deny from all
+# Deny direct web access to logs (Apache 2.4)
+Require all denied

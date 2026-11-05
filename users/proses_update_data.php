@@ -1,6 +1,6 @@
 <?php
 // file: users/proses_update_data.php
-session_start();
+require_once '../config/bootstrap.php';
 require_once '../config/koneksi.php';
 require_once '../config/crypto.php';
 require_once '../config/csrf.php';
