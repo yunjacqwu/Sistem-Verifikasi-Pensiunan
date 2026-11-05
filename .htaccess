@@ -1,0 +1,17 @@
+# file: .htaccess (di root project)
+
+# Block akses ke file sensitif
+<FilesMatch "^\.env">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+<FilesMatch "^\.env\..*">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Redirect HTTP ke HTTPS (aktifkan setelah SSL terpasang)
+# RewriteEngine On
+# RewriteCond %{HTTPS} off
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]

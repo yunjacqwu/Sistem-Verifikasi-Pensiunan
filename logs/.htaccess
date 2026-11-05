@@ -1,0 +1,3 @@
+# file: logs/.htaccess
+Order allow,deny
+Deny from all
