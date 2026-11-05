@@ -3,6 +3,7 @@
 require_once '../config/bootstrap.php';
 require_once '../config/koneksi.php';
 require_once '../config/crypto.php';
+require_once '../config/csrf.php';
 
 if (!isset($_SESSION['user_logged_in']) || $_SESSION['user_logged_in'] !== true) {
     header("Location: login.php");
