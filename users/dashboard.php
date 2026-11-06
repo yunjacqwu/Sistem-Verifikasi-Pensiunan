@@ -96,8 +96,8 @@ try {
     $periode_kuartal = $kuartal_map[$kuartal_no] . ' ' . $tahun . ')';
 
 } catch (PDOException $e) {
-    // Detail exception tetap di server log; jangan tampilkan SQL/schema ke pengguna.
-    error_log('Dashboard data load failed: ' . $e->getMessage());
+    $request_id = bin2hex(random_bytes(4));
+    error_log(sprintf('[%s] Dashboard PDO error occurred', $request_id));
     http_response_code(500);
     die('Gagal memuat data. Silakan coba kembali beberapa saat lagi.');
 }
