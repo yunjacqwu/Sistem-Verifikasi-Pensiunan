@@ -29,50 +29,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($file_input['size'] > 2097152) {
             $pesan_error = "Ukuran file maksimal 2 MB.";
         } else {
-            try {
-                // Baca file sebagai binary
-                $file_binary = file_get_contents($file_input['tmp_name']);
+            // Validasi MIME type menggunakan finfo
+            $mime_type = finfo_file(finfo_open(FILEINFO_MIME_TYPE), $file_input['tmp_name']);
 
-                if ($file_binary === false) {
-                    throw new RuntimeException("Gagal membaca file.");
-                }
+            $mime_ok = [
+                'jpg'  => 'image/jpeg',
+                'jpeg' => 'image/jpeg',
+                'png'  => 'image/png',
+                'pdf'  => 'application/pdf',
+            ];
 
-                // Enkripsi file binary
-                $file_enc = enkripsiFile($file_binary, $npk);
+            if (!isset($mime_ok[$ekstensi]) || $mime_ok[$ekstensi] !== $mime_type) {
+                $pesan_error = "File tidak cocok dengan tipe ekstensinya. Gunakan file asli JPG, PNG, atau PDF.";
+            } else {
+                try {
+                    // Baca file sebagai binary
+                    $file_binary = file_get_contents($file_input['tmp_name']);
 
-                // Cek apakah dokumen jenis ini sudah ada
-                $cek = $db->prepare("SELECT id, file FROM dokumen WHERE npk = :npk AND jns_dok = :jns_dok LIMIT 1");
-                $cek->execute(['npk' => $npk, 'jns_dok' => $jns_dok]);
-                $dok_lama = $cek->fetch();
+                    if ($file_binary === false) {
+                        throw new RuntimeException("Gagal membaca file.");
+                    }
 
-                if ($dok_lama) {
-                    // Update dokumen (re-upload)
-                    $upd = $db->prepare("
-                        UPDATE dokumen
-                        SET file = :file, status = 'Menunggu Verifikasi', updated_at = CURRENT_TIMESTAMP
-                        WHERE id = :id
+                    // Enkripsi file binary
+                    $file_enc = enkripsiFile($file_binary, $npk);
+
+                    // Cek apakah dokumen jenis ini sudah ada
+                    $cek = $db->prepare("SELECT id, file FROM dokumen WHERE npk = :npk AND jns_dok = :jns_dok LIMIT 1");
+                    $cek->execute(['npk' => $npk, 'jns_dok' => $jns_dok]);
+                    $dok_lama = $cek->fetch();
+
+                    if ($dok_lama) {
+                        // Update dokumen (re-upload)
+                        $upd = $db->prepare("
+                            UPDATE dokumen
+                            SET file = :file, status = 'Menunggu Verifikasi', updated_at = CURRENT_TIMESTAMP
+                            WHERE id = :id
+                        ");
+                        $upd->execute(['file' => $file_enc, 'id' => $dok_lama['id']]);
+                    } else {
+                        // Insert baru
+                        $ins = $db->prepare("
+                            INSERT INTO dokumen (npk, jns_dok, file, status)
+                            VALUES (:npk, :jns_dok, :file, 'Menunggu Verifikasi')
+                        ");
+                        $ins->execute(['npk' => $npk, 'jns_dok' => $jns_dok, 'file' => $file_enc]);
+                    }
+
+                    // Catat aktivitas Upload Dokumen ke audit log (berlaku untuk upload baru maupun re-upload)
+                    $stmt_log = $db->prepare("
+                        INSERT INTO audit_logs (npk, tabel_terkait, kolom_diubah, nilai_lama, nilai_baru, diubah_oleh)
+                        VALUES (:npk, 'dokumen', 'dokumen_upload', NULL, :jenis, :oleh)
                     ");
-                    $upd->execute(['file' => $file_enc, 'id' => $dok_lama['id']]);
-                } else {
-                    // Insert baru
-                    $ins = $db->prepare("
-                        INSERT INTO dokumen (npk, jns_dok, file, status)
-                        VALUES (:npk, :jns_dok, :file, 'Menunggu Verifikasi')
-                    ");
-                    $ins->execute(['npk' => $npk, 'jns_dok' => $jns_dok, 'file' => $file_enc]);
+                    $stmt_log->execute(['npk' => $npk, 'jenis' => $jns_dok, 'oleh' => $npk]);
+
+                    $pesan_sukses = "Dokumen $jns_dok berhasil diunggah dan sedang menunggu verifikasi admin.";
+
+                } catch (Exception $e) {
+                    $rid = bin2hex(random_bytes(4));
+                    error_log(sprintf('[%s] Upload dokumen gagal: %s', $rid, get_class($e)));
+                    $pesan_error = "Gagal memproses dokumen. Silakan coba lagi.";
                 }
-
-                // Catat aktivitas Upload Dokumen ke audit log (berlaku untuk upload baru maupun re-upload)
-                $stmt_log = $db->prepare("
-                    INSERT INTO audit_logs (npk, tabel_terkait, kolom_diubah, nilai_lama, nilai_baru, diubah_oleh)
-                    VALUES (:npk, 'dokumen', 'dokumen_upload', NULL, :jenis, :oleh)
-                ");
-                $stmt_log->execute(['npk' => $npk, 'jenis' => $jns_dok, 'oleh' => $npk]);
-
-                $pesan_sukses = "Dokumen $jns_dok berhasil diunggah dan sedang menunggu verifikasi admin.";
-
-            } catch (Exception $e) {
-                $pesan_error = "Gagal memproses dokumen. Silakan coba lagi.";
             }
         }
     }
@@ -87,6 +103,8 @@ try {
         $list_dok[$row['jns_dok']] = $row['status'];
     }
 } catch (PDOException $e) {
+    $rid = bin2hex(random_bytes(4));
+    error_log(sprintf('[%s] Pembacaan status dokumen gagal: %s', $rid, get_class($e)));
     $list_dok = [];
 }
 $page_title = 'Unggah Dokumen';
