@@ -48,37 +48,11 @@ $sheet->getStyle('A1:L1')->getFill()
     ->getStartColor()->setRGB('1E293B');
 $sheet->getStyle('A1:L1')->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
 
-// Baris contoh 1 — pensiunan asli (baris 2)
-$contoh = [
-    '0099', 'Contoh Nama Pensiunan', '3201234567890099', 'L', 'Jakarta',
-    '1960-05-10', '081234567890',
-    'Jl. Contoh No. 1, Jakarta', '1990-01-01', '2020-01-01',
-    'Pensiun Normal', 'Aktif',
-];
-
-foreach ($contoh as $i => $val) {
-    $col = $i < 26 ? chr(65 + $i) : 'A' . chr(65 + ($i - 26));
-    $sheet->setCellValue($col . '2', $val);
-}
-
-// Baris contoh 2 — janda/duda (baris 3)
-$contoh2 = [
-    '0100', 'Contoh Nama Janda', '3201234567890100', 'P', 'Bandung',
-    '1965-03-15', '081234567891',
-    'Jl. Contoh No. 2, Bandung', '1992-06-01', '2022-06-01',
-    'Pensiun Janda/Duda', 'Aktif',
-];
-
-foreach ($contoh2 as $i => $val) {
-    $col = $i < 26 ? chr(65 + $i) : 'A' . chr(65 + ($i - 26));
-    $sheet->setCellValue($col . '3', $val);
-}
-
-// Styling kedua baris contoh
-$sheet->getStyle('A2:L3')->getFont()->setItalic(true)->getColor()->setRGB('94A3B8');
-// Lebar kolom otomatis A sampai O
-foreach (range('A', 'L') as $col) {
-    $sheet->getColumnDimension($col)->setAutoSize(true);
+// Lebar kolom tetap, disesuaikan dengan jenis isi kolom (bukan hanya panjang header)
+$lebar_kolom = ['A' => 14, 'B' => 36, 'C' => 22, 'D' => 20, 'E' => 20, 'F' => 28,
+    'G' => 18, 'H' => 45, 'I' => 28, 'J' => 28, 'K' => 24, 'L' => 28];
+foreach ($lebar_kolom as $col => $lebar) {
+    $sheet->getColumnDimension($col)->setWidth($lebar);
 }
 
 // Format teks untuk kolom yang rawan notasi ilmiah
