@@ -7,6 +7,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 
 if (!isset($_SESSION['admin_logged_in'])) {
     header("Location: login.php");
@@ -37,7 +38,7 @@ $sheet->getStyle('A1:C1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartCol
 
 foreach ($daftar as $i => $d) {
     $baris = $i + 2;
-    $sheet->setCellValue('A' . $baris, $d['npk']);
+    $sheet->setCellValueExplicit('A' . $baris, $d['npk'], DataType::TYPE_STRING);
     $sheet->setCellValue('B' . $baris, $d['nama']);
     $sheet->setCellValue('C' . $baris, $d['pin']);
 }

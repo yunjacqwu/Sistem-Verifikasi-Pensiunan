@@ -4,6 +4,7 @@ require_once '../config/bootstrap.php';
 require_once '../config/koneksi.php';
 require_once '../config/crypto.php';
 require_once '../config/helper.php';
+require_once __DIR__ . '/../config/csrf.php';
 
 if (!isset($_SESSION['admin_logged_in'])) {
     header("Location: login.php");
@@ -257,7 +258,7 @@ $query_string = http_build_query($query_params);
                                             <form action="proses_verifikasi_dokumen.php" method="POST" class="inline">
                                                 <?= csrf_field(); ?>
                                                 <input type="hidden" name="id_dok" value="<?= $row['id']; ?>">
-                                                <input type="hidden" name="npk"    value="<?= $row['npk']; ?>">
+                                                <input type="hidden" name="npk"    value="<?= htmlspecialchars($row['npk'], ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8'); ?>">
                                                 <input type="hidden" name="aksi"   value="Disetujui">
                                                 <button type="submit"
                                                         <?= $status === 'Disetujui' ? 'disabled' : ''; ?>
@@ -271,7 +272,7 @@ $query_string = http_build_query($query_params);
                                             </form>
 
                                             <!-- Tolak -->
-                                            <button @click="bukaTolak('<?= $row['id']; ?>', '<?= $row['npk']; ?>')"
+                                            <button @click="bukaTolak('<?= $row['id']; ?>', <?= htmlspecialchars(json_encode($row['npk'], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_INVALID_UTF8_SUBSTITUTE), ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8'); ?>)"
                                                     <?= $status === 'Ditolak' ? 'disabled' : ''; ?>
                                                     class="p-1.5 rounded-lg transition-colors
                                                     <?= $status === 'Ditolak' ? 'text-slate-300 cursor-not-allowed' : 'text-slate-500 hover:text-red-600 hover:bg-red-50'; ?>"

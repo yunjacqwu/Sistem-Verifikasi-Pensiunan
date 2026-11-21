@@ -450,7 +450,7 @@ $query_string = http_build_query($query_params);
                                             </button>
 
                                             <!-- Reset PIN -->
-                                            <button @click="bukaResetPin('<?= $row['npk']; ?>')"
+                                            <button @click="bukaResetPin(<?= htmlspecialchars(json_encode($row['npk'], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_INVALID_UTF8_SUBSTITUTE), ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8'); ?>)"
                                                     class="p-1.5 rounded-lg text-slate-500 hover:text-amber-600 hover:bg-amber-50 transition-colors" title="Reset PIN">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
@@ -458,7 +458,7 @@ $query_string = http_build_query($query_params);
                                             </button>
 
                                             <!-- Nonaktifkan -->
-                                            <button @click="bukaNonaktif('<?= $row['npk']; ?>','<?= $row['status']; ?>')"
+                                            <button @click="bukaNonaktif(<?= htmlspecialchars(json_encode($row['npk'], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_INVALID_UTF8_SUBSTITUTE), ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8'); ?>,'<?= $row['status']; ?>')"
                                                     class="p-1.5 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
                                                     title="<?= $row['status'] === 'Aktif' ? 'Nonaktifkan' : 'Aktifkan'; ?>">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

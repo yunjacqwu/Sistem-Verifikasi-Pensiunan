@@ -86,6 +86,13 @@ try {
         $npk = trim((string)($row['A'] ?? ''));
         if (empty($npk)) continue; // baris kosong, skip diam-diam
 
+        // Format NPK sama dengan proses_tambah_pensiunan.php. NPK dipakai di HTML, JavaScript, dan kunci enkripsi.
+        // Nilai mentah tidak dikembalikan ke output karena bisa berisi markup.
+        if (!preg_match('/^[a-zA-Z0-9_-]+$/', $npk)) {
+            $gagal[] = ['baris' => $no_baris, 'npk' => '(tidak valid)', 'alasan' => 'Format NPK tidak valid'];
+            continue;
+        }
+
         $nama     = trim((string)($row['B'] ?? ''));
         $nik      = trim((string)($row['C'] ?? ''));
         $jk_raw   = trim(strtoupper((string)($row['D'] ?? '')));
