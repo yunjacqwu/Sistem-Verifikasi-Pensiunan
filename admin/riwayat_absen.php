@@ -350,7 +350,7 @@ $query_string = http_build_query($query_params);
                                         <div class="flex items-center justify-center gap-1">
 
                                             <!-- Detail per tahun -->
-                                            <button @click="bukaDetailLapor('<?= $row['npk']; ?>', '<?= htmlspecialchars($row['nama_plain'], ENT_QUOTES); ?>')"
+                                            <button @click="bukaDetailLapor(<?= htmlspecialchars(json_encode($row['npk'], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_INVALID_UTF8_SUBSTITUTE), ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8'); ?>, <?= htmlspecialchars(json_encode($row['nama_plain'], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_INVALID_UTF8_SUBSTITUTE), ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8'); ?>)"
                                                     class="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Detail Lapor Diri per Tahun">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -362,7 +362,7 @@ $query_string = http_build_query($query_params);
                                             <form action="proses_verifikasi_absen.php" method="POST">
                                                 <?= csrf_field(); ?>
                                                 <input type="hidden" name="id_lapor" value="<?= $row['id']; ?>">
-                                                <input type="hidden" name="npk"      value="<?= $row['npk']; ?>">
+                                                <input type="hidden" name="npk"      value="<?= htmlspecialchars($row['npk'], ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8'); ?>">
                                                 <input type="hidden" name="aksi"     value="Disetujui">
                                                 <button type="submit"
                                                         <?= $status === 'Disetujui' ? 'disabled' : ''; ?>
@@ -373,7 +373,7 @@ $query_string = http_build_query($query_params);
                                             </form>
 
                                             <!-- Tombol Tolak — buka modal -->
-                                            <button @click="bukaTolak('<?= $row['id']; ?>', '<?= $row['npk']; ?>')"
+                                            <button @click="bukaTolak('<?= $row['id']; ?>', <?= htmlspecialchars(json_encode($row['npk'], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_INVALID_UTF8_SUBSTITUTE), ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8'); ?>)"
                                                     <?= $status === 'Ditolak' ? 'disabled' : ''; ?>
                                                     class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors
                                                     <?= $status === 'Ditolak' ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'; ?>">

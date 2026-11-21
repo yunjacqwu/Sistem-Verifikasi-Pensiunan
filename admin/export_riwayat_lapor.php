@@ -16,6 +16,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 
 date_default_timezone_set('Asia/Jakarta');
 
@@ -186,7 +187,7 @@ $sheet->setCellValue('B5', 'Nama');
 // === DATA ===
 $row_num = 7;
 foreach ($semua_pensiunan as $i => $p) {
-    $sheet->setCellValue('A' . $row_num, $p['npk']);
+    $sheet->setCellValueExplicit('A' . $row_num, $p['npk'], DataType::TYPE_STRING);
     $sheet->setCellValue('B' . $row_num, $p['nama_plain']);
 
     $col_idx = 3;
