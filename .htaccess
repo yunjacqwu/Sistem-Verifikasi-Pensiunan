@@ -1,4 +1,16 @@
 # Apache 2.4 access control for sensitive environment files
+
+# F-05 6B-3Q: tidak menampilkan listing folder tanpa index
+Options -Indexes
+
+# F-05 6B-3Q: blokir ekstensi SQL dan Markdown (huruf besar dan kecil)
+<FilesMatch "\.[sS][qQ][lL]$">
+    Require all denied
+</FilesMatch>
+<FilesMatch "\.[mM][dD]$">
+    Require all denied
+</FilesMatch>
+
 <FilesMatch "^\.env(?:\..*)?$">
     Require all denied
 </FilesMatch>
@@ -6,6 +18,10 @@
 # Force HTTPS for non-local hosts. Local XAMPP development remains usable over HTTP.
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # F-05 6B-3Q: blokir folder internal dan arsip (403). Harus sebelum aturan HTTPS di bawah.
+    RewriteRule ^(\.git|\.codebase-memory|\.claude|config|backup|backup_stage2_[^/]+|database|includes|admin/includes)(/|$) - [F,L,NC]
+
     RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:[0-9]+)?$ [NC]
     RewriteCond %{HTTPS} !=on
     RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L,NE]

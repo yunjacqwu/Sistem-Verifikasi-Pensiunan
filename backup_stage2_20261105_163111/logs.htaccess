@@ -1,2 +1,0 @@
-# Deny direct web access to logs (Apache 2.4)
-Require all denied
