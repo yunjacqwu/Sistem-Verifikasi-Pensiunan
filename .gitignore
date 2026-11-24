@@ -26,3 +26,8 @@ temp/
 /backup_checkpoint_*/
 .claude/settings.local.json
 /.codebase-memory/
+
+# Arsip backup dan salinan skema (tidak untuk repo)
+/backup/
+/backup_*/
+/F05_STAGE1_SCHEMA_ONLY.sql
