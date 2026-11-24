@@ -93,7 +93,9 @@ $query_string = http_build_query($query_params);
     <link rel="icon" type="image/png" href="/absensi_pensiunan/favicon.png">
     <title>Kelola Dokumen - Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="/absensi_pensiunan_dev/static/vendor/alpine-3.14.1.min.js" integrity="sha384-l8f0VcPi/M1iHPv8egOnY/15TDwqgbOR1anMIJWvU6nLRgZVLTLSaNqi/TOoT5Fh"></script>
+    <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/fonts.css">
+    <script defer src="/absensi_pensiunan_dev/static/js/modal-focus.js"></script>
 </head>
 <body class="bg-slate-100 font-sans antialiased text-slate-800">
 <div class="flex h-screen overflow-hidden">
@@ -132,7 +134,7 @@ $query_string = http_build_query($query_params);
                         <input type="text" name="search" value="<?= htmlspecialchars($search); ?>"
                             placeholder="Cari NPK atau Nama..."
                             class="pl-9 pr-4 py-2 w-full border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                         </svg>
                     </div>
@@ -189,7 +191,7 @@ $query_string = http_build_query($query_params);
                         <tbody class="divide-y divide-slate-100">
                             <?php if (empty($daftar)): ?>
                                 <tr>
-                                    <td colspan="5" class="px-6 py-10 text-center text-slate-400">
+                                    <td colspan="5" class="px-6 py-10 text-center text-slate-500">
                                         Tidak ada dokumen yang sesuai filter.
                                     </td>
                                 </tr>
@@ -201,7 +203,7 @@ $query_string = http_build_query($query_params);
                                     <!-- Pensiunan -->
                                     <td class="px-4 py-3">
                                         <p class="font-semibold text-slate-800"><?= htmlspecialchars($row['nama_plain']); ?></p>
-                                        <p class="text-xs text-slate-400 font-mono">NPK: <?= htmlspecialchars($row['npk']); ?></p>
+                                        <p class="text-xs text-slate-500 font-mono">NPK: <?= htmlspecialchars($row['npk']); ?></p>
                                     </td>
 
                                     <!-- Jenis -->
@@ -222,7 +224,7 @@ $query_string = http_build_query($query_params);
                                             <?php endif; ?>
                                             <div class="text-slate-600 text-xs">
                                                 <p>Upload: <?= $row['created_fmt']; ?></p>
-                                                <p class="text-slate-400">Update: <?= $row['updated_fmt']; ?></p>
+                                                <p class="text-slate-500">Update: <?= $row['updated_fmt']; ?></p>
                                             </div>
                                         </div>
                                     </td>
@@ -315,14 +317,14 @@ $query_string = http_build_query($query_params);
             </div>
 
             <!-- Modal Lihat Dokumen -->
-            <div x-show="modalDok" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-0 !mt-0" style="display:none;">
+            <div x-show="modalDok" @keydown.escape.window="modalDok = false" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-0 !mt-0" style="display:none;">
                 <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden">
                     <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
                         <div>
                             <h3 class="font-bold text-slate-800" x-text="dokNama + ' — ' + dokJenis"></h3>
-                            <p class="text-xs text-slate-400 mt-0.5">Dokumen Terenkripsi</p>
+                            <p class="text-xs text-slate-500 mt-0.5">Dokumen Terenkripsi</p>
                         </div>
-                        <button @click="modalDok = false" class="p-2 rounded-full border border-slate-200 text-slate-400 hover:text-red-500">
+                        <button @click="modalDok = false" class="p-2 rounded-full border border-slate-200 text-slate-500 hover:text-red-500">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                             </svg>
@@ -366,7 +368,7 @@ $query_string = http_build_query($query_params);
             </div>
 
             <!-- Modal Tolak -->
-            <div x-show="modalTolak" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-0 !mt-0" style="display:none;">
+            <div x-show="modalTolak" @keydown.escape.window="modalTolak = false" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-0 !mt-0" style="display:none;">
                 <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
                     <form action="proses_verifikasi_dokumen.php" method="POST">
                         <?= csrf_field(); ?>
@@ -421,7 +423,7 @@ $query_string = http_build_query($query_params);
                             </button>
                             <button type="submit"
                                     :disabled="!catatanFinal"
-                                    :class="!catatanFinal ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'"
+                                    :class="!catatanFinal ? 'bg-slate-300 text-slate-700 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'"
                                     class="flex-1 py-2.5 rounded-xl font-bold text-sm transition-colors">
                                 Konfirmasi Tolak
                             </button>

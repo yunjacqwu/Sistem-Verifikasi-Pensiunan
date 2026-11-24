@@ -2,6 +2,7 @@
 // file: admin/proses_verifikasi_absen.php
 require_once '../config/bootstrap.php';
 require_once '../config/koneksi.php';
+require_once '../config/audit.php';
 require_once '../config/crypto.php';
 require_once '../config/csrf.php';
 
@@ -46,15 +47,7 @@ try {
     ]);
 
     // Catat audit log
-    $stmt_log = $db->prepare("
-        INSERT INTO audit_logs (npk, tabel_terkait, kolom_diubah, nilai_lama, nilai_baru, diubah_oleh)
-        VALUES (:npk, 'lapor_diri', 'status_verifikasi', 'Menunggu Verifikasi', :baru, :oleh)
-    ");
-    $stmt_log->execute([
-        'npk'  => $npk,
-        'baru' => $aksi,
-        'oleh' => $_SESSION['admin_username'],
-    ]);
+        audit_tulis($db, $npk, 'lapor_diri', 'status_verifikasi', 'Menunggu Verifikasi', $aksi, $_SESSION['admin_username']);
 
     // Kirim notifikasi ke user
     if ($aksi === 'Disetujui') {

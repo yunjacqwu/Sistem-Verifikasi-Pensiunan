@@ -2,6 +2,7 @@
 // file: admin/proses_login_admin.php
 require_once '../config/bootstrap.php';
 require_once '../config/koneksi.php';
+require_once '../config/audit.php';
 require_once '../config/csrf.php';
 require_once '../config/security.php';
 
@@ -42,6 +43,9 @@ try {
 
     rate_limit_reset($db, 'admin'); // Reset counter login
     session_regenerate_id(true);
+    // Catat login admin ke audit sebelum sesi ditandai aktif. Admin tidak punya NPK, jadi npk dikosongkan.
+        audit_tulis($db, null, 'admin_sistem', 'login', null, 'Login berhasil', $admin['username']);
+
     $_SESSION['admin_logged_in'] = true;
     $_SESSION['admin_id']        = $admin['id'];
     $_SESSION['admin_username']  = $admin['username'];

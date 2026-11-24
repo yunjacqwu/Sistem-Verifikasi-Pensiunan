@@ -2,6 +2,7 @@
 // file: users/upload_dokumen.php
 require_once '../config/bootstrap.php';
 require_once '../config/koneksi.php';
+require_once '../config/audit.php';
 require_once '../config/crypto.php';
 require_once '../config/csrf.php';
 
@@ -11,6 +12,16 @@ if (!isset($_SESSION['user_logged_in']) || $_SESSION['user_logged_in'] !== true)
 }
 
 $npk = $_SESSION['user_npk'];
+
+// PDF yang berisi skrip atau aksi otomatis ditolak. Pemeriksaan sederhana pada penanda objek PDF.
+// Catatan: PDF yang objeknya dikompresi di object stream tidak terdeteksi oleh cara ini.
+function pdf_mengandung_skrip(string $path): bool {
+    $isi = file_get_contents($path);
+    if ($isi === false) {
+        return true; // gagal baca = tolak
+    }
+    return preg_match('/\/(JavaScript|JS|OpenAction|AA|Launch)(?![A-Za-z])/', $isi) === 1;
+}
 
 // Proses upload
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -41,6 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if (!isset($mime_ok[$ekstensi]) || $mime_ok[$ekstensi] !== $mime_type) {
                 $pesan_error = "File tidak cocok dengan tipe ekstensinya. Gunakan file asli JPG, PNG, atau PDF.";
+            } elseif ($ekstensi === 'pdf' && pdf_mengandung_skrip($file_input['tmp_name'])) {
+                $pesan_error = "PDF tidak boleh berisi skrip atau aksi otomatis. Unggah ulang sebagai JPG, atau cetak ulang ke PDF tanpa formulir interaktif.";
             } else {
                 try {
                     // Baca file sebagai binary
@@ -76,11 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     // Catat aktivitas Upload Dokumen ke audit log (berlaku untuk upload baru maupun re-upload)
-                    $stmt_log = $db->prepare("
-                        INSERT INTO audit_logs (npk, tabel_terkait, kolom_diubah, nilai_lama, nilai_baru, diubah_oleh)
-                        VALUES (:npk, 'dokumen', 'dokumen_upload', NULL, :jenis, :oleh)
-                    ");
-                    $stmt_log->execute(['npk' => $npk, 'jenis' => $jns_dok, 'oleh' => $npk]);
+                                        audit_tulis($db, $npk, 'dokumen', 'dokumen_upload', null, $jns_dok, $npk);
 
                     $pesan_sukses = "Dokumen $jns_dok berhasil diunggah dan sedang menunggu verifikasi admin.";
 

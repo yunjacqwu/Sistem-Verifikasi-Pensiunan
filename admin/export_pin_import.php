@@ -2,6 +2,8 @@
 // file: admin/export_pin_import.php
 require_once '../config/bootstrap.php';
 require_once '../config/koneksi.php';
+require_once '../config/audit.php';
+require_once '../config/crypto.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -17,13 +19,30 @@ if (!isset($_SESSION['admin_logged_in'])) {
 $batch_id = $_GET['batch'] ?? '';
 $key = 'pin_import_' . $batch_id;
 
-if (empty($batch_id) || !isset($_SESSION[$key])) {
+if (!preg_match('/^[a-f0-9]{16}$/', $batch_id) || !isset($_SESSION[$key])) {
     header("Location: import_pensiunan.php?error=Data PIN tidak ditemukan atau sudah pernah diunduh.");
     exit;
 }
 
-$daftar = $_SESSION[$key];
-unset($_SESSION[$key]); // hapus setelah diakses sekali — tidak bisa didownload ulang
+// Sekali pakai: kunci dihapus sebelum dibaca, sehingga unduhan kedua tidak mungkin.
+$blob = $_SESSION[$key];
+unset($_SESSION[$key]);
+
+if (time() > (int)($blob['expires'] ?? 0)) {
+    header("Location: import_pensiunan.php?error=Data PIN sudah kedaluwarsa. Lakukan reset PIN untuk pensiunan tersebut.");
+    exit;
+}
+
+$daftar = json_decode((string)dekripsi($blob['data'] ?? '', $batch_id), true);
+if (!is_array($daftar) || empty($daftar)) {
+    header("Location: import_pensiunan.php?error=Data PIN tidak dapat dibaca.");
+    exit;
+}
+
+// Catat ekspor per pensiunan ke audit. PIN tidak ditulis ke log.
+foreach ($daftar as $d) {
+    audit_tulis($db, $d['npk'], 'pensiunan', 'export_pin', null, 'Ekspor PIN batch import', $_SESSION['admin_username']);
+}
 
 $spreadsheet = new Spreadsheet();
 $sheet = $spreadsheet->getActiveSheet();

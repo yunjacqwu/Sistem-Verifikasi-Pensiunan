@@ -27,7 +27,7 @@ try {
     // Ambil daftar tahun yang ada di database untuk filter
     $tahun_list = $db->query("SELECT DISTINCT YEAR(waktu) as tahun FROM lapor_diri ORDER BY tahun DESC")->fetchAll(PDO::FETCH_COLUMN);
 
-    // Bangun WHERE untuk filter yang bisa dilakukan di SQL (search nama TIDAK di sini)
+    // Bangun WHERE untuk filter yang dijalankan di database
     $where  = ["1=1"];
     $params = [];
 
@@ -44,21 +44,66 @@ try {
         $params['kuartal']  = $filter_kuartal;
     }
 
+    // Pencarian: NPK dicocokkan di SQL. Nama terenkripsi, jadi hanya kolom nama yang didekripsi,
+    // dan hanya saat kolom pencarian diisi.
+    if ($search !== '') {
+        $kandidat = $db->prepare("SELECT l.id, l.npk, p.nama FROM lapor_diri l JOIN pensiunan p ON l.npk = p.npk WHERE " . implode(' AND ', $where));
+        foreach ($params as $k => $v) {
+            $kandidat->bindValue(':' . $k, $v);
+        }
+        $kandidat->execute();
+        $cari = strtolower($search);
+        $id_cocok = [];
+        foreach ($kandidat->fetchAll() as $k) {
+            $nama = strtolower((string)dekripsi($k['nama'], $k['npk']));
+            if (str_contains($nama, $cari) || str_contains(strtolower($k['npk']), $cari)) {
+                $id_cocok[] = (int)$k['id'];
+            }
+        }
+        if (empty($id_cocok)) {
+            $where[] = "1=0";
+        } else {
+            $ids_param = [];
+            foreach ($id_cocok as $i => $id_c) {
+                $params['id' . $i] = $id_c;
+                $ids_param[] = ':id' . $i;
+            }
+            $where[] = "l.id IN (" . implode(',', $ids_param) . ")";
+        }
+    }
+
     $where_sql = implode(' AND ', $where);
 
-    // Ambil SEMUA data yang lolos filter SQL dulu (tanpa pagination)
+    // Jumlah total dan paginasi dilakukan di database
+    $stmt_count = $db->prepare("SELECT COUNT(*) FROM lapor_diri l JOIN pensiunan p ON l.npk = p.npk WHERE $where_sql");
+    foreach ($params as $k => $v) {
+        $stmt_count->bindValue(':' . $k, $v);
+    }
+    $stmt_count->execute();
+    $total_data = (int)$stmt_count->fetchColumn();
+    $total_page = max(1, (int)ceil($total_data / $per_page));
+    $page       = min($page, $total_page);
+    $offset     = ($page - 1) * $per_page;
+
+    // Hanya baris halaman ini yang diambil dan didekripsi (kolom foto tidak diambil, foto dibuka terpisah)
     $stmt_all = $db->prepare("
-        SELECT l.id, l.npk, l.waktu, l.foto, l.status_verifikasi, l.catatan_tolak, p.nama
+        SELECT l.id, l.npk, l.waktu, l.status_verifikasi, l.catatan_tolak, p.nama
         FROM lapor_diri l
         JOIN pensiunan p ON l.npk = p.npk
         WHERE $where_sql
         ORDER BY l.waktu DESC
+        LIMIT :lim OFFSET :off
     ");
-    $stmt_all->execute($params);
-    $semua_data = $stmt_all->fetchAll();
+    foreach ($params as $k => $v) {
+        $stmt_all->bindValue(':' . $k, $v);
+    }
+    $stmt_all->bindValue(':lim', $per_page, PDO::PARAM_INT);
+    $stmt_all->bindValue(':off', $offset, PDO::PARAM_INT);
+    $stmt_all->execute();
+    $riwayat = $stmt_all->fetchAll();
 
-    // Dekripsi nama + format waktu untuk semua data
-    foreach ($semua_data as &$row) {
+    // Dekripsi nama + format waktu hanya untuk baris halaman ini
+    foreach ($riwayat as &$row) {
         $row['nama_plain'] = dekripsi($row['nama'], $row['npk']);
         $fmt = formatTanggal($row['waktu']);
         $row['kuartal_label'] = $fmt['kuartal'];
@@ -67,23 +112,6 @@ try {
     }
     unset($row);
 
-    // Filter search (nama atau NPK) di PHP
-    if (!empty($search)) {
-        $search_lower = strtolower($search);
-        $semua_data = array_filter($semua_data, function($row) use ($search_lower) {
-            return str_contains(strtolower($row['nama_plain']), $search_lower)
-                || str_contains(strtolower($row['npk']), $search_lower);
-        });
-        $semua_data = array_values($semua_data);
-    }
-
-    // Pagination manual setelah filter PHP
-    $total_data = count($semua_data);
-    $total_page = max(1, ceil($total_data / $per_page));
-    $page       = min($page, $total_page);
-    $offset     = ($page - 1) * $per_page;
-    $riwayat    = array_slice($semua_data, $offset, $per_page);
-    
     // Ambil riwayat lengkap lapor diri untuk npk-npk di halaman ini (untuk modal Detail per Tahun)
     $npk_list_page  = array_unique(array_column($riwayat, 'npk'));
     $riwayat_detail = [];
@@ -146,7 +174,9 @@ $query_string = http_build_query($query_params);
     <link rel="icon" type="image/png" href="/absensi_pensiunan/favicon.png">
     <title>Riwayat Lapor Diri - Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="/absensi_pensiunan_dev/static/vendor/alpine-3.14.1.min.js" integrity="sha384-l8f0VcPi/M1iHPv8egOnY/15TDwqgbOR1anMIJWvU6nLRgZVLTLSaNqi/TOoT5Fh"></script>
+    <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/fonts.css">
+    <script defer src="/absensi_pensiunan_dev/static/js/modal-focus.js"></script>
 </head>
 <body class="bg-slate-100 font-sans antialiased text-slate-800">
 <div class="flex h-screen overflow-hidden">
@@ -205,7 +235,7 @@ $query_string = http_build_query($query_params);
                         <input type="text" name="search" value="<?= htmlspecialchars($search); ?>"
                                placeholder="Cari NPK atau Nama..."
                                class="pl-9 pr-4 py-2 w-full border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                         </svg>
                     </div>
@@ -283,7 +313,7 @@ $query_string = http_build_query($query_params);
                         <tbody class="divide-y divide-slate-100">
                             <?php if (empty($riwayat)): ?>
                                 <tr>
-                                    <td colspan="5" class="px-6 py-10 text-center text-slate-400">
+                                    <td colspan="5" class="px-6 py-10 text-center text-slate-500">
                                         Belum ada data lapor diri.
                                     </td>
                                 </tr>
@@ -304,7 +334,7 @@ $query_string = http_build_query($query_params);
                                                 <p class="font-bold text-slate-800">
                                                     <?= $row['kuartal_label']; ?> / <?= $row['tgl_fmt']; ?>
                                                 </p>
-                                                <p class="text-xs text-slate-400 mt-0.5"><?= $row['jam_fmt']; ?> WIB</p>
+                                                <p class="text-xs text-slate-500 mt-0.5"><?= $row['jam_fmt']; ?> WIB</p>
                                             </div>
                                         </div>
                                     </td>
@@ -312,7 +342,7 @@ $query_string = http_build_query($query_params);
                                     <!-- Identitas -->
                                     <td class="px-4 py-3">
                                         <p class="font-semibold text-slate-800"><?= htmlspecialchars($row['nama_plain']); ?></p>
-                                        <p class="text-xs text-slate-400 font-mono">NPK: <?= htmlspecialchars($row['npk']); ?></p>
+                                        <p class="text-xs text-slate-500 font-mono">NPK: <?= htmlspecialchars($row['npk']); ?></p>
                                     </td>
 
                                     <!-- Foto -->
@@ -413,17 +443,17 @@ $query_string = http_build_query($query_params);
             </div>
             
             <!-- Modal Detail Lapor Diri per Tahun -->
-            <div x-show="modalDetailLapor" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-40 p-4 !mt-0" style="display:none;">
+            <div x-show="modalDetailLapor" @keydown.escape.window="modalDetailLapor = false" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-40 p-4 !mt-0" style="display:none;">
                 <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-slate-200 flex flex-col max-h-[90vh]">
 
                     <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-2xl">
                         <div>
                             <h3 class="font-bold text-slate-800 text-lg">Detail Lapor Diri</h3>
-                            <p class="text-xs text-slate-400 mt-0.5">
+                            <p class="text-xs text-slate-500 mt-0.5">
                                 <span x-text="detailNama"></span> — NPK: <span class="font-mono" x-text="detailNpk"></span>
                             </p>
                         </div>
-                        <button @click="modalDetailLapor = false" class="p-2 rounded-full border border-slate-200 text-slate-400 hover:text-red-500">
+                        <button @click="modalDetailLapor = false" class="p-2 rounded-full border border-slate-200 text-slate-500 hover:text-red-500">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                             </svg>
@@ -438,7 +468,7 @@ $query_string = http_build_query($query_params);
                                 </div>
                                 <table class="w-full text-sm">
                                     <thead>
-                                        <tr class="text-xs uppercase text-slate-400">
+                                        <tr class="text-xs uppercase text-slate-500">
                                             <th class="px-4 py-2 text-left font-semibold">Waktu</th>
                                             <th class="px-4 py-2 text-center font-semibold">Foto Wajah</th>
                                             <th class="px-4 py-2 text-left font-semibold">Status</th>
@@ -454,7 +484,7 @@ $query_string = http_build_query($query_params);
                                                         <span x-text="q==='Q1'?'Jan–Mar':q==='Q2'?'Apr–Jun':q==='Q3'?'Jul–Sep':'Okt–Des'"></span>
                                                     </p>
                                                     <template x-if="riwayatDetail[detailNpk]?.[tahun]?.[q]">
-                                                        <p class="text-xs text-slate-400 mt-0.5">
+                                                        <p class="text-xs text-slate-500 mt-0.5">
                                                             <span x-text="riwayatDetail[detailNpk][tahun][q].tanggal"></span>
                                                             · <span x-text="riwayatDetail[detailNpk][tahun][q].jam"></span>
                                                         </p>
@@ -468,7 +498,7 @@ $query_string = http_build_query($query_params);
                                                 <td class="px-4 py-2.5 text-center">
                                                     <template x-if="riwayatDetail[detailNpk]?.[tahun]?.[q]">
                                                         <button @click="bukaFoto(riwayatDetail[detailNpk][tahun][q].id, detailNama, q + ' / ' + tahun, riwayatDetail[detailNpk][tahun][q].jam)"
-                                                                class="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors">
+                                                                class="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 transition-colors">
                                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -476,7 +506,7 @@ $query_string = http_build_query($query_params);
                                                         </button>
                                                     </template>
                                                     <template x-if="!riwayatDetail[detailNpk]?.[tahun]?.[q]">
-                                                        <span class="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-slate-100 text-slate-300">
+                                                        <span class="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-slate-100 text-slate-500">
                                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -497,7 +527,7 @@ $query_string = http_build_query($query_params);
                                                         <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">Ditolak</span>
                                                     </template>
                                                     <template x-if="!riwayatDetail[detailNpk]?.[tahun]?.[q]">
-                                                        <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-400">Belum Lapor</span>
+                                                        <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600">Belum Lapor</span>
                                                     </template>
                                                 </td>
                                             </tr>
@@ -517,7 +547,7 @@ $query_string = http_build_query($query_params);
             </div>
 
             <!-- Modal Lihat Foto -->
-            <div x-show="modalFoto" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-0 !mt-0" style="display:none;">
+            <div x-show="modalFoto" @keydown.escape.window="modalFoto = false" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-0 !mt-0" style="display:none;">
                 <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
                     <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
                         <div>
@@ -526,7 +556,7 @@ $query_string = http_build_query($query_params);
                                 <span x-text="fotoTgl"></span> &nbsp;|&nbsp; <span x-text="fotoJam"></span> WIB
                             </p>
                         </div>
-                        <button @click="modalFoto = false" class="p-2 rounded-full border border-slate-200 text-slate-400 hover:text-red-500">
+                        <button @click="modalFoto = false" class="p-2 rounded-full border border-slate-200 text-slate-500 hover:text-red-500">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                             </svg>
@@ -545,6 +575,17 @@ $query_string = http_build_query($query_params);
                         <img x-show="!fotoLoading" :src="fotoSrc"
                              class="max-w-full max-h-[60vh] object-contain rounded border border-slate-700 shadow-lg">
                     </div>
+                    <!-- Cek visual sebelum verifikasi (tidak disimpan) -->
+                    <div class="px-6 py-3 border-t border-slate-200 bg-amber-50 text-sm text-slate-700">
+                        <p class="font-bold mb-1">Cek sebelum menyetujui:</p>
+                        <ul class="space-y-1 text-xs">
+                            <li><label class="flex gap-2"><input type="checkbox" class="mt-0.5"> Wajah di foto sama dengan foto di KTP</label></li>
+                            <li><label class="flex gap-2"><input type="checkbox" class="mt-0.5"> Tidak ada tepi layar atau bingkai HP</label></li>
+                            <li><label class="flex gap-2"><input type="checkbox" class="mt-0.5"> Tidak ada tepi kertas atau foto cetak di sekitar</label></li>
+                            <li><label class="flex gap-2"><input type="checkbox" class="mt-0.5"> Tidak ada pola garis halus (moiré) pada foto</label></li>
+                            <li><label class="flex gap-2"><input type="checkbox" class="mt-0.5"> Cahaya dan bayangan terlihat wajar</label></li>
+                        </ul>
+                    </div>
                     <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
                         <a :href="'lihat_foto_lapor.php?id=' + fotoId + '&mode=download'"
                            class="text-blue-600 hover:text-blue-800 font-medium text-sm flex items-center gap-1">
@@ -561,7 +602,7 @@ $query_string = http_build_query($query_params);
             </div>
 
             <!-- Modal Tolak -->
-            <div x-show="modalTolak" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-0 !mt-0" style="display:none;">
+            <div x-show="modalTolak" @keydown.escape.window="modalTolak = false" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-0 !mt-0" style="display:none;">
                 <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
                     <form action="proses_verifikasi_absen.php" method="POST">
                         <?= csrf_field(); ?>
@@ -608,7 +649,7 @@ $query_string = http_build_query($query_params);
                             </button>
                             <button type="submit"
                                     :disabled="!catatanFinal"
-                                    :class="!catatanFinal ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'"
+                                    :class="!catatanFinal ? 'bg-slate-300 text-slate-700 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'"
                                     class="flex-1 py-2.5 rounded-xl font-bold text-sm transition-colors">
                                 Konfirmasi Tolak
                             </button>

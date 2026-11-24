@@ -2,6 +2,7 @@
 // file: admin/lihat_dokumen.php
 require_once '../config/bootstrap.php';
 require_once '../config/koneksi.php';
+require_once '../config/audit.php';
 require_once '../config/crypto.php';
 
 if (!isset($_SESSION['admin_logged_in'])) {
@@ -49,7 +50,17 @@ try {
         $ext  = 'bin';
     }
 
-    $disposition = $mode === 'download'
+    // F-06: catat setiap akses berkas ke audit sebelum dikirim. Jika pencatatan gagal, berkas tidak dikirim.
+    try {
+                audit_tulis($db, $row['npk'], 'dokumen', 'akses_berkas', null, ($mode === 'download' ? 'Unduh' : 'Lihat') . ' ' . $row['jns_dok'], $_SESSION['admin_username']);
+    } catch (PDOException $e) {
+        error_log('Audit akses dokumen gagal: ' . get_class($e));
+        http_response_code(500);
+        exit;
+    }
+
+    // PDF selalu diunduh, tidak ditampilkan inline di origin aplikasi (JavaScript dalam PDF tidak dijalankan di sini).
+    $disposition = ($mode === 'download' || $ext === 'pdf')
         ? "attachment; filename=\"{$row['npk']}_{$row['jns_dok']}.{$ext}\""
         : "inline";
 

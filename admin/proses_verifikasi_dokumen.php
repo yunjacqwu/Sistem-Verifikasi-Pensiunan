@@ -2,6 +2,7 @@
 // file: admin/proses_verifikasi_dokumen.php
 require_once '../config/bootstrap.php';
 require_once '../config/koneksi.php';
+require_once '../config/audit.php';
 require_once '../config/csrf.php';
 
 if (!isset($_SESSION['admin_logged_in'])) {
@@ -57,16 +58,7 @@ try {
     // Audit log
     $kolom_audit = 'status_' . strtolower($dok['jns_dok']); // 'status_ktp' atau 'status_kk'
 
-    $stmt_log = $db->prepare("
-        INSERT INTO audit_logs (npk, tabel_terkait, kolom_diubah, nilai_lama, nilai_baru, diubah_oleh)
-        VALUES (:npk, 'dokumen', :kolom, 'Menunggu Verifikasi', :baru, :oleh)
-    ");
-    $stmt_log->execute([
-        'npk'   => $npk,
-        'kolom' => $kolom_audit,
-        'baru'  => $aksi,
-        'oleh'  => $_SESSION['admin_username'],
-    ]);
+        audit_tulis($db, $npk, 'dokumen', $kolom_audit, 'Menunggu Verifikasi', $aksi, $_SESSION['admin_username']);
 
     // Notifikasi ke user
     if ($aksi === 'Disetujui') {
