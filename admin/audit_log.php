@@ -16,7 +16,21 @@ $_SESSION['audit_log_last_seen'] = date('Y-m-d H:i:s');
 date_default_timezone_set('Asia/Jakarta');
 
 $search       = trim($_GET['search'] ?? '');
-$filter_tabel = $_GET['tabel'] ?? '';
+$filter_kategori = $_GET['kategori'] ?? '';
+
+// Kategori aktivitas: label untuk dropdown dan potongan SQL tetap (tidak ada input pengguna di SQL).
+$KATEGORI = [
+    'pensiunan_data'      => ['label' => 'Data Pensiunan', 'sql' => "(a.tabel_terkait = 'pensiunan' AND a.kolom_diubah NOT IN ('pin_hash','pin','export_pin'))"],
+    'reset_pin'           => ['label' => 'Reset PIN', 'sql' => "(a.tabel_terkait = 'pensiunan' AND a.kolom_diubah IN ('pin_hash','pin'))"],
+    'ekspor_pin'          => ['label' => 'Ekspor PIN', 'sql' => "(a.kolom_diubah = 'export_pin')"],
+    'lapor_diri'          => ['label' => 'Lapor Diri', 'sql' => "(a.tabel_terkait = 'lapor_diri' AND a.kolom_diubah IN ('lapor_diri','status_verifikasi'))"],
+    'dokumen_upload'      => ['label' => 'Unggah Dokumen', 'sql' => "(a.kolom_diubah = 'dokumen_upload')"],
+    'dokumen_verifikasi'  => ['label' => 'Verifikasi Dokumen', 'sql' => "(a.tabel_terkait = 'dokumen' AND a.kolom_diubah IN ('status_ktp','status_kk'))"],
+    'akses_berkas'        => ['label' => 'Akses Berkas, Foto, dan Profil', 'sql' => "(a.kolom_diubah IN ('akses_berkas','akses_foto','akses_profil'))"],
+    'login_admin'         => ['label' => 'Login Admin', 'sql' => "(a.tabel_terkait = 'admin_sistem' AND a.kolom_diubah IN ('login','logout'))"],
+];
+// Kategori 'lainnya' = semua baris yang tidak termasuk kategori di atas, supaya tidak ada baris yang hilang dari filter.
+$KATEGORI['lainnya'] = ['label' => 'Lainnya', 'sql' => 'NOT (' . implode(' OR ', array_map(fn($k) => $KATEGORI[$k]['sql'], array_keys($KATEGORI))) . ')'];
 $date_from    = $_GET['date_from'] ?? '';
 $date_to      = $_GET['date_to'] ?? '';
 $per_page     = in_array((int)($_GET['per_page'] ?? 25), [25,50,100,250,500])
@@ -52,10 +66,39 @@ $kolom_label_map = [
     'lapor_diri'        => 'Lapor Diri',
     'alih_status'       => 'Alih Status Penerima',
     'jns_penerima'      => 'Status Penerima',
+    'akses_berkas'      => 'Akses Berkas',
+    'akses_foto'        => 'Akses Foto',
+    'akses_profil'      => 'Profil Pensiunan',
+    'export_pin'        => 'Ekspor PIN',
+    'login'             => 'Login',
+    'logout'            => 'Logout',
 ];
 
 // === Fungsi mapping aksi -> verb/objek/icon/warna ===
 function getActivityInfo(string $tabel, bool $is_user, array $kolom_list, array $details): array {
+
+    // Aksi akses dan ekspor (dicatat sejak F-06 dan ekspor PIN)
+    $nilai_akses = '';
+    foreach ($details as $d) {
+        if (in_array($d['kolom_diubah'], ['akses_berkas', 'akses_foto'], true)) { $nilai_akses = (string)$d['nilai_baru']; }
+    }
+    if (in_array('akses_berkas', $kolom_list, true)) {
+        $jenis = trim((string)preg_replace('/^(Unduh|Lihat)\s*/', '', $nilai_akses));
+        return ['verb' => str_starts_with($nilai_akses, 'Unduh') ? 'mengunduh' : 'melihat', 'objek' => 'Dokumen ' . $jenis, 'icon' => 'document', 'color' => 'blue', 'show_detail' => false];
+    }
+    if (in_array('akses_foto', $kolom_list, true)) {
+        return ['verb' => str_starts_with($nilai_akses, 'Unduh') ? 'mengunduh' : 'melihat', 'objek' => 'Foto Lapor Diri', 'icon' => 'camera', 'color' => 'blue', 'show_detail' => false];
+    }
+    if (in_array('export_pin', $kolom_list, true)) {
+        return ['verb' => 'mengekspor', 'objek' => 'PIN', 'icon' => 'key', 'color' => 'orange', 'show_detail' => false];
+    }
+    if ($tabel === 'admin_sistem' && in_array('login', $kolom_list, true)) {
+        return ['verb' => 'masuk ke', 'objek' => 'Aplikasi', 'icon' => 'power', 'color' => 'slate', 'show_detail' => false];
+    }
+    if ($tabel === 'admin_sistem' && in_array('logout', $kolom_list, true)) {
+        return ['verb' => 'keluar dari', 'objek' => 'Aplikasi', 'icon' => 'power', 'color' => 'slate', 'show_detail' => false];
+    }
+
 
     if ($tabel === 'lapor_diri') {
         if ($is_user) {
@@ -93,7 +136,15 @@ function getActivityInfo(string $tabel, bool $is_user, array $kolom_list, array 
 
     if ($tabel === 'pensiunan') {
         if ($is_user) {
+            if (in_array('pin_hash', $kolom_list) || in_array('pin', $kolom_list)) {
+                return ['verb' => 'mengubah', 'objek' => 'PIN', 'icon' => 'key', 'color' => 'orange', 'show_detail' => false];
+            }
             return ['verb' => 'memperbarui', 'objek' => 'Data Diri', 'icon' => 'pencil', 'color' => 'amber', 'show_detail' => true];
+        }
+
+        // Admin: lihat profil pensiunan (dicatat saat modal Detail dibuka)
+        if (in_array('akses_profil', $kolom_list)) {
+            return ['verb' => 'melihat', 'objek' => 'Profil Pensiunan', 'icon' => 'document', 'color' => 'blue', 'show_detail' => false];
         }
 
         // Admin: reset PIN — cek INI DULUAN, karena nilai_lama=NULL bisa salah terdeteksi sebagai "Pensiunan Baru"
@@ -123,7 +174,7 @@ function getActivityInfo(string $tabel, bool $is_user, array $kolom_list, array 
         return ['verb' => 'memperbarui', 'objek' => 'Data Pensiunan', 'icon' => 'pencil', 'color' => 'amber', 'show_detail' => true];
     }
 
-    return ['verb' => 'melakukan perubahan pada', 'objek' => ucfirst(str_replace('_', ' ', $tabel)), 'icon' => 'document', 'color' => 'slate', 'show_detail' => true];
+    return ['verb' => 'mencatat aksi pada', 'objek' => ucfirst(str_replace('_', ' ', $tabel)), 'icon' => 'document', 'color' => 'slate', 'show_detail' => true];
 }
 
 // SVG path per ikon
@@ -147,9 +198,8 @@ try {
     $where  = ["1=1"];
     $params = [];
 
-    if (!empty($filter_tabel)) {
-        $where[]          = "a.tabel_terkait = :tabel";
-        $params['tabel']  = $filter_tabel;
+    if (isset($KATEGORI[$filter_kategori])) {
+        $where[] = $KATEGORI[$filter_kategori]['sql'];
     }
     if (!empty($date_from)) {
         $where[]              = "DATE(a.waktu) >= :date_from";
@@ -202,7 +252,7 @@ try {
         $search_lower = strtolower($search);
         $events = array_filter($events, function($e) use ($search_lower) {
             return str_contains(strtolower($e['nama_plain']), $search_lower)
-                || str_contains(strtolower($e['npk']), $search_lower);
+                || str_contains(strtolower($e['npk'] ?? ''), $search_lower);
         });
         $events = array_values($events);
     }
@@ -226,21 +276,29 @@ try {
     }
     unset($e);
 
-    // Pagination manual setelah grouping + filter
-    $total_data  = count($events);
-    $total_page  = max(1, ceil($total_data / $per_page));
-    $page        = min($page, $total_page);
-    $offset      = ($page - 1) * $per_page;
-    $events_page = array_slice($events, $offset, $per_page);
+    // Pisahkan aksi admin dan pensiunan. Masing-masing punya paginasi sendiri (parameter pa dan pu).
+    $total_data   = count($events);
+    $events_admin = array_values(array_filter($events, fn($e) => !$e['is_user']));
+    $events_user  = array_values(array_filter($events, fn($e) => $e['is_user']));
+    $total_admin  = count($events_admin);
+    $total_user   = count($events_user);
 
-    // Kelompokkan events_page per tanggal — SETELAH pagination
-    $events_grouped = [];
-    foreach ($events_page as $e) {
-        $tgl_key = date('Y-m-d', strtotime($e['waktu']));
-        $events_grouped[$tgl_key][] = $e;
-    }
+    $total_page_a = max(1, (int)ceil($total_admin / $per_page));
+    $total_page_u = max(1, (int)ceil($total_user / $per_page));
+    $page_a = min(max(1, (int)($_GET['pa'] ?? 1)), $total_page_a);
+    $page_u = min(max(1, (int)($_GET['pu'] ?? 1)), $total_page_u);
 
-    $tabel_list = $db->query("SELECT DISTINCT tabel_terkait FROM audit_logs ORDER BY tabel_terkait")->fetchAll(PDO::FETCH_COLUMN);
+    $events_page_admin = array_slice($events_admin, ($page_a - 1) * $per_page, $per_page);
+    $events_page_user  = array_slice($events_user,  ($page_u - 1) * $per_page, $per_page);
+
+    $kelompok_per_tanggal = function (array $list): array {
+        $g = [];
+        foreach ($list as $e) { $g[date('Y-m-d', strtotime($e['waktu']))][] = $e; }
+        return $g;
+    };
+    $grouped_admin = $kelompok_per_tanggal($events_page_admin);
+    $grouped_user  = $kelompok_per_tanggal($events_page_user);
+
 
 } catch (PDOException $e) {
     die("Gagal memuat data audit log.");
@@ -255,7 +313,9 @@ try {
     <link rel="icon" type="image/png" href="/absensi_pensiunan/favicon.png">
     <title>Audit Log - Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="/absensi_pensiunan_dev/static/vendor/alpine-3.14.1.min.js" integrity="sha384-l8f0VcPi/M1iHPv8egOnY/15TDwqgbOR1anMIJWvU6nLRgZVLTLSaNqi/TOoT5Fh"></script>
+    <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/fonts.css">
+    <script defer src="/absensi_pensiunan_dev/static/js/modal-focus.js"></script>
 </head>
 <body class="bg-slate-100 font-sans antialiased text-slate-800">
 <div class="flex h-screen overflow-hidden">
@@ -269,9 +329,9 @@ try {
 
             <!-- Header -->
             <div>
-                <h2 class="text-2xl font-bold text-slate-800">Audit Log</h2>
+                <h2 class="text-2xl font-bold text-slate-800">Log Aktivitas dan Audit Data</h2>
                 <p class="text-slate-500 text-sm mt-1">
-                    Riwayat aktivitas pengguna dan admin dalam sistem. Hanya dapat dibaca, tidak dapat diedit atau dihapus.
+                    Riwayat perubahan data dan akses berkas. Kiri: aksi admin. Kanan: aksi pensiunan. Hanya dapat dibaca, tidak dapat diedit atau dihapus.
                 </p>
             </div>
 
@@ -282,19 +342,19 @@ try {
                     <!-- Search -->
                     <div class="col-span-2 relative">
                         <input type="text" name="search" value="<?= htmlspecialchars($search); ?>"
-                               placeholder="Cari NPK atau Nama..."
+                               placeholder="Cari NPK atau nama"
                                class="pl-9 pr-4 py-2 w-full border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                         </svg>
                     </div>
 
                     <!-- Filter Tabel -->
-                    <select name="tabel" class="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="">Semua Jenis Aktivitas</option>
-                        <?php foreach ($tabel_list as $t): ?>
-                            <option value="<?= htmlspecialchars($t); ?>" <?= $filter_tabel === $t ? 'selected' : ''; ?>>
-                                <?= htmlspecialchars($t); ?>
+                    <select name="kategori" class="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Semua Aktivitas</option>
+                        <?php foreach ($KATEGORI as $key => $kat): ?>
+                            <option value="<?= htmlspecialchars($key); ?>" <?= $filter_kategori === $key ? 'selected' : ''; ?>>
+                                <?= htmlspecialchars($kat['label']); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
@@ -324,148 +384,40 @@ try {
                             <option value="<?= $n; ?>" <?= $per_page === $n ? 'selected' : ''; ?>><?= $n; ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <span>aktivitas — Total: <strong><?= number_format($total_data); ?></strong></span>
+                    <span>Total aktivitas: <strong><?= number_format($total_data); ?></strong></span>
                 </div>
             </form>
 
-            <!-- Activity Feed -->
-            <div class="space-y-3">
-                <?php if (empty($events_page)): ?>
-                    <div class="bg-white rounded-xl border border-slate-200 p-10 text-center text-slate-400">
-                        Tidak ada aktivitas yang sesuai filter.
+            <!-- Dua sisi: kiri aksi admin, kanan aksi pensiunan. Masing-masing punya scroll dan paginasi sendiri. -->
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
+                <section class="min-w-0">
+                    <div class="sticky top-0 z-10 bg-slate-50 pb-2">
+                        <h3 class="font-bold text-slate-700">Aksi Admin <span class="text-sm font-normal text-slate-500">(<?= number_format($total_admin); ?>)</span></h3>
                     </div>
-                <?php else: ?>
-                    <?php
-                    $hari_ini = date('Y-m-d');
-                    $kemarin  = date('Y-m-d', strtotime('-1 day'));
-
-                    foreach ($events_grouped as $tgl => $group_events):
-                        if ($tgl === $hari_ini) {
-                            $label_tgl = 'Hari ini';
-                        } elseif ($tgl === $kemarin) {
-                            $label_tgl = 'Kemarin';
-                        } else {
-                            $fmt = formatTanggal($tgl . ' 00:00:00');
-                            $label_tgl = $fmt['tanggal'];
-                        }
-                    ?>
-
-                    <!-- Separator tanggal -->
-                    <div class="flex items-center gap-3 my-1">
-                        <div class="flex-1 h-px bg-slate-200"></div>
-                        <span class="text-xs font-semibold text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-200 whitespace-nowrap">
-                            <?= $label_tgl; ?>
-                        </span>
-                        <div class="flex-1 h-px bg-slate-200"></div>
+                    <div class="overflow-y-auto pr-1 space-y-3" style="max-height: 70vh;">
+                        <?php
+                        $events_page    = $events_page_admin;
+                        $events_grouped = $grouped_admin;
+                        include __DIR__ . '/includes/audit_feed.php';
+                        ?>
                     </div>
+                    <?php $pager_param = 'pa'; $pager_page = $page_a; $pager_total = $total_page_a; include __DIR__ . '/includes/audit_pager.php'; ?>
+                </section>
 
-                    <?php foreach ($group_events as $e): ?>
-                    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden w-full" x-data="{ open: false }">
-
-                        <div class="px-4 py-3 flex items-center gap-3 <?= $e['has_detail'] ? 'cursor-pointer hover:bg-slate-50' : ''; ?> transition-colors"
-                            <?= $e['has_detail'] ? '@click="open = !open"' : ''; ?>>
-
-                            <!-- Icon -->
-                            <div class="h-10 w-10 rounded-full flex items-center justify-center bg-<?= $e['color']; ?>-100 text-<?= $e['color']; ?>-600 flex-shrink-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <?= activityIconPath($e['icon']); ?>
-                                </svg>
-                            </div>
-
-                            <!-- Teks -->
-                            <div class="flex-1 min-w-0">
-                                <p class="font-semibold text-slate-800 text-sm truncate">
-                                    <?php if ($e['is_user']): ?>
-                                        <span class="font-mono text-slate-500"><?= htmlspecialchars($e['npk']); ?></span> /
-                                        <?= htmlspecialchars($e['nama_plain']); ?>
-                                        <?= $e['verb']; ?> <span class="font-bold"><?= $e['objek']; ?></span>
-                                    <?php else: ?>
-                                        <span class="text-blue-600">Admin</span>
-                                        <span class="text-slate-400">(<?= htmlspecialchars($e['diubah_oleh']); ?>)</span>
-                                        <?= $e['verb']; ?> <span class="font-bold"><?= $e['objek']; ?></span>
-                                        <?php if (!empty($e['npk'])): ?>
-                                            <?php $connector = ($e['objek'] === 'Pensiunan Baru') ? ':' : 'untuk'; ?>
-                                            <?= $connector; ?> <span class="font-mono text-slate-500"><?= htmlspecialchars($e['npk']); ?></span> / <?= htmlspecialchars($e['nama_plain']); ?>
-                                        <?php endif; ?>
-                                    <?php endif; ?>
-                                </p>
-                                <p class="text-xs text-slate-400 mt-0.5"><?= $e['tanggal_fmt']; ?> · <?= $e['jam_fmt']; ?></p>
-                            </div>
-
-                            <!-- Chevron -->
-                            <?php if ($e['has_detail']): ?>
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 flex-shrink-0 ml-auto transition-transform" :class="open ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                                </svg>
-                            <?php endif; ?>
-                        </div>
-
-                        <!-- Detail -->
-                        <?php if ($e['has_detail']): ?>
-                        <div x-show="open" x-transition class="px-4 pb-4 pt-1 border-t border-slate-100 space-y-2 overflow-x-hidden" style="display:none;">
-                            <?php
-                            if ($e['tabel_terkait'] === 'dokumen' && $e['is_user']):
-                                $jenis_list = array_column($e['details'], 'nilai_baru');
-                            ?>
-                                <p class="text-sm text-slate-600 pl-1">
-                                    <span class="font-bold text-slate-700">01.</span> — Mengunggah <span class="font-bold"><?= implode(' dan ', $jenis_list); ?></span>
-                                </p>
-                            <?php else: ?>
-                                <?php
-                                $kolom_terenkripsi = ['nama', 'nik', 'tmpt_lhr', 'telp', 'telp2', 'alamat'];
-                                foreach ($e['details'] as $i => $d):
-                                    $label = $kolom_label_map[$d['kolom_diubah']] ?? $d['kolom_diubah'];
-                                    if (in_array($d['kolom_diubah'], $kolom_terenkripsi)) {
-                                        $lama = !empty($d['nilai_lama']) ? dekripsi($d['nilai_lama'], $e['npk']) : '—';
-                                        $baru = !empty($d['nilai_baru']) ? dekripsi($d['nilai_baru'], $e['npk']) : '—';
-                                    } else {
-                                        $lama = ($d['nilai_lama'] !== null && $d['nilai_lama'] !== '') ? $d['nilai_lama'] : '—';
-                                        $baru = $d['nilai_baru'] ?? '—';
-                                    }
-                                ?>
-                                    <p class="text-sm text-slate-600 pl-1 leading-relaxed break-words">
-                                        <span class="font-bold text-slate-700"><?= sprintf('%02d', $i+1); ?>.</span> — Mengubah <span class="font-bold"><?= htmlspecialchars($label); ?></span> dari
-                                        <span class="font-mono text-xs bg-red-50 text-red-600 px-1.5 py-0.5 rounded break-all inline-block max-w-full align-bottom"><?= htmlspecialchars($lama); ?></span>
-                                        jadi
-                                        <span class="font-mono text-xs bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded break-all inline-block max-w-full align-bottom"><?= htmlspecialchars($baru); ?></span>
-                                    </p>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </div>
-                        <?php endif; ?>
-
+                <section class="min-w-0">
+                    <div class="sticky top-0 z-10 bg-slate-50 pb-2">
+                        <h3 class="font-bold text-slate-700">Aksi Pensiunan <span class="text-sm font-normal text-slate-500">(<?= number_format($total_user); ?>)</span></h3>
                     </div>
-                    <?php endforeach; ?>
-
-                    <?php endforeach; ?>
-                <?php endif; ?>
+                    <div class="overflow-y-auto pr-1 space-y-3" style="max-height: 70vh;">
+                        <?php
+                        $events_page    = $events_page_user;
+                        $events_grouped = $grouped_user;
+                        include __DIR__ . '/includes/audit_feed.php';
+                        ?>
+                    </div>
+                    <?php $pager_param = 'pu'; $pager_page = $page_u; $pager_total = $total_page_u; include __DIR__ . '/includes/audit_pager.php'; ?>
+                </section>
             </div>
-
-            <!-- Pagination -->
-            <?php if ($total_page > 1): ?>
-            <?php
-                $query_params = $_GET;
-                unset($query_params['page']);
-                $query_string = http_build_query($query_params);
-            ?>
-            <div class="bg-white rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between text-sm text-slate-600">
-                <p>Halaman <?= $page; ?> dari <?= $total_page; ?></p>
-                <div class="flex gap-1">
-                    <?php if ($page > 1): ?>
-                        <a href="?page=<?= $page-1; ?>&<?= $query_string; ?>" class="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50">← Prev</a>
-                    <?php endif; ?>
-                    <?php for ($i = max(1,$page-2); $i <= min($total_page,$page+2); $i++): ?>
-                        <a href="?page=<?= $i; ?>&<?= $query_string; ?>"
-                           class="px-3 py-1.5 rounded-lg border transition-colors <?= $i===$page ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-300 hover:bg-slate-50'; ?>">
-                            <?= $i; ?>
-                        </a>
-                    <?php endfor; ?>
-                    <?php if ($page < $total_page): ?>
-                        <a href="?page=<?= $page+1; ?>&<?= $query_string; ?>" class="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50">Next →</a>
-                    <?php endif; ?>
-                </div>
-            </div>
-            <?php endif; ?>
 
         </main>
     </div>

@@ -2,6 +2,7 @@
 // file: users/proses_absen.php
 require_once '../config/bootstrap.php';
 require_once '../config/koneksi.php';
+require_once '../config/audit.php';
 require_once '../config/crypto.php';
 require_once '../config/csrf.php';
 
@@ -174,15 +175,7 @@ try {
 
     // Catat aktivitas Lapor Diri ke audit log
     $periode_label = 'Q' . ceil(date('n') / 3) . ' ' . date('Y');
-    $stmt_log = $db->prepare("
-        INSERT INTO audit_logs (npk, tabel_terkait, kolom_diubah, nilai_lama, nilai_baru, diubah_oleh)
-        VALUES (:npk, 'lapor_diri', 'lapor_diri', NULL, :periode, :npk2)
-    ");
-    $stmt_log->execute([
-        'npk'     => $npk,
-        'periode' => $periode_label,
-        'npk2'    => $npk,
-    ]);
+        audit_tulis($db, $npk, 'lapor_diri', 'lapor_diri', null, $periode_label, $npk);
 
     $db->commit();
 

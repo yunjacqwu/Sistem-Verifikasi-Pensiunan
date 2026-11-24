@@ -2,6 +2,7 @@
 // file: admin/proses_import_pensiunan.php
 require_once '../config/bootstrap.php';
 require_once '../config/koneksi.php';
+require_once '../config/audit.php';
 require_once '../config/crypto.php';
 require_once '../config/csrf.php';
 require_once '../config/security.php';
@@ -74,11 +75,7 @@ try {
             :telp, :telp2, :alamat, :tgl_msk, :tgl_psn, :jns_mnft, :status,
             :jns_penerima, :pin_hash, 1)
     ");
-    $stmt_log = $db->prepare("
-        INSERT INTO audit_logs (npk, tabel_terkait, kolom_diubah, nilai_lama, nilai_baru, diubah_oleh)
-        VALUES (:npk, 'pensiunan', 'nama', NULL, :nama_enc, :oleh)
-    ");
-
+    
     foreach ($rows as $no_baris => $row) {
         if ($no_baris == 1) continue; // skip header
         if ($no_baris == 2 && trim((string)$row['A']) === '0099') continue; // skip baris contoh
@@ -159,13 +156,9 @@ try {
                 'jns_penerima' => $jenis_penerima,
             ]);
 
-            $stmt_log->execute([
-                'npk'      => $npk,
-                'nama_enc' => $nama_enc,
-                'oleh'     => $_SESSION['admin_username'],
-            ]);
+            audit_tulis($db, $npk, 'pensiunan', 'nama', null, $nama_enc, $_SESSION['admin_username']);
 
-            $pin_hasil_import[] = ['npk' => $npk, 'pin' => $pin_baru];
+            $pin_hasil_import[] = ['npk' => $npk, 'nama' => $nama, 'pin' => $pin_baru];
             $sukses++;
 
         } catch (Exception $e) {
@@ -180,7 +173,11 @@ try {
         'gagal'    => $gagal,
     ];
 
-    // PIN tetap hanya berada di memori request, tidak masuk session/log.
+    // PIN batch disimpan terenkripsi di session untuk satu kali unduh Excel (kedaluwarsa 15 menit). Tidak masuk log.
+    $_SESSION['pin_import_' . $batch_id] = [
+        'expires' => time() + 900,
+        'data'    => enkripsi(json_encode($pin_hasil_import, JSON_UNESCAPED_UNICODE), $batch_id),
+    ];
     require_once __DIR__ . '/import_pensiunan.php';
     exit;
 

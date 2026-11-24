@@ -2,6 +2,7 @@
 // file: admin/proses_alih_status.php
 require_once '../config/bootstrap.php';
 require_once '../config/koneksi.php';
+require_once '../config/audit.php';
 require_once '../config/crypto.php';
 require_once '../config/csrf.php';
 
@@ -103,37 +104,15 @@ try {
 
     // Catat ke audit log
     $nama_lama_plain = dekripsi($data_lama['nama'], $npk);
-    $stmt_log = $db->prepare("
-        INSERT INTO audit_logs (npk, tabel_terkait, kolom_diubah, nilai_lama, nilai_baru, diubah_oleh)
-        VALUES (:npk, 'pensiunan', :kolom, :lama, :baru, :oleh)
-    ");
-    
+        
     // Log nama
-    $stmt_log->execute([
-        'npk'   => $npk,
-        'kolom' => 'nama',
-        'lama'  => $data_lama['nama'],
-        'baru'  => $nama_baru_enc,
-        'oleh'  => $_SESSION['admin_username'],
-    ]);
+    audit_tulis($db, $npk, 'pensiunan', 'nama', $data_lama['nama'], $nama_baru_enc, $_SESSION['admin_username']);
 
     // Log jenis manfaat
-    $stmt_log->execute([
-        'npk'   => $npk,
-        'kolom' => 'jns_mnft',
-        'lama'  => $data_lama['jns_mnft'],
-        'baru'  => $jns_mnft_baru,
-        'oleh'  => $_SESSION['admin_username'],
-    ]);
+    audit_tulis($db, $npk, 'pensiunan', 'jns_mnft', $data_lama['jns_mnft'], $jns_mnft_baru, $_SESSION['admin_username']);
 
     // Log khusus alih status — sebagai penanda event utama
-    $stmt_log->execute([
-        'npk'   => $npk,
-        'kolom' => 'alih_status',
-        'lama'  => $data_lama['jns_penerima'] ?? 'Pensiunan Asli',
-        'baru'  => $jenis_penerima,
-        'oleh'  => $_SESSION['admin_username'],
-    ]);
+    audit_tulis($db, $npk, 'pensiunan', 'alih_status', $data_lama['jns_penerima'] ?? 'Pensiunan Asli', $jenis_penerima, $_SESSION['admin_username']);
 
     header("Location: data_pensiunan.php?sukses=" . urlencode("Alih status penerima berhasil. Manfaat pensiun NPK $npk kini diterima oleh $nama_baru ($jenis_penerima)."));
     exit;

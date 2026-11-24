@@ -22,5 +22,7 @@ Thumbs.db
 # Temporary files
 tmp/
 temp/
+
+/backup_checkpoint_*/
 .claude/settings.local.json
 /.codebase-memory/

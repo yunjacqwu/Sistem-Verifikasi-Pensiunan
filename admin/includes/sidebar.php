@@ -37,14 +37,9 @@ $menu = [
 
 <aside class="w-64 bg-slate-900 text-white flex flex-col flex-shrink-0">
 
-    <!-- Logo -->
-    <div class="h-16 flex items-center gap-3 px-5 border-b border-slate-700">
-        <div class="h-11 w-11 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
-        </div>
-        <p class="text-white font-bold text-xl tracking-wide">ADM SIKEPEN</p>
+    <!-- Judul -->
+    <div class="h-16 flex items-center px-5 border-b border-slate-700">
+        <p class="text-white font-bold text-xl tracking-wide">SIKEPEN Control</p>
     </div>
 
     <!-- Menu navigasi -->
