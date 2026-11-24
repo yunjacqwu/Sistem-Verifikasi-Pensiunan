@@ -15,8 +15,9 @@ if (isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'] === true) 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="/absensi_pensiunan/favicon.png">
-    <title>Portal Pensiunan - Dana Pensiun Perum Peruri</title>
+    <title>Portal Pensiunan - Dana Pensiun Pegawai Perum Peruri</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/fonts.css">
 </head>
 <body class="bg-slate-100 font-sans antialiased min-h-screen flex items-center justify-center p-4">
 
@@ -28,13 +29,11 @@ if (isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'] === true) 
             <!-- Logo & nama instansi -->
             <div>
                 <div class="flex items-center gap-3 mb-8">
-                    <div class="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
+                    <div class="bg-white rounded-xl p-1.5 flex items-center justify-center flex-shrink-0">
+                        <img src="/absensi_pensiunan_dev/sikepen.png" alt="Logo Dana Pensiun Peruri" class="h-10 w-auto block">
                     </div>
                     <div>
-                        <p class="text-white/70 text-xs font-medium uppercase tracking-widest">Dana Pensiun</p>
+                        <p class="text-white/70 text-xs font-medium uppercase tracking-widest">Dana Pensiun Pegawai</p>
                         <p class="text-white font-bold text-lg leading-tight">Perum Peruri</p>
                     </div>
                 </div>
@@ -78,7 +77,7 @@ if (isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'] === true) 
 
             <!-- Footer panel kiri -->
             <p class="text-blue-300 text-xs mt-10">
-                &copy; <?= date('Y'); ?> Dana Pensiun Perum Peruri
+                &copy; <?= date('Y'); ?> Dana Pensiun Pegawai Perum Peruri
             </p>
 
         </div>
@@ -88,13 +87,11 @@ if (isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'] === true) 
 
             <!-- Header mobile (hanya muncul di layar kecil) -->
             <div class="flex items-center gap-3 mb-6 md:hidden">
-                <div class="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
+                <div class="bg-white rounded-xl p-1 flex items-center justify-center flex-shrink-0">
+                    <img src="/absensi_pensiunan_dev/sikepen.png" alt="Logo Dana Pensiun Peruri" class="h-9 w-auto block">
                 </div>
                 <div>
-                    <p class="text-slate-400 text-xs">Dana Pensiun Perum Peruri</p>
+                    <p class="text-slate-400 text-xs">Dana Pensiun Pegawai Perum Peruri</p>
                     <p class="font-bold text-slate-800 text-sm">Kepesertaan Pensiunan</p>
                 </div>
             </div>

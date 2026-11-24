@@ -2,6 +2,7 @@
 // file: admin/proses_edit_pensiunan.php
 require_once '../config/bootstrap.php';
 require_once '../config/koneksi.php';
+require_once '../config/audit.php';
 require_once '../config/crypto.php';
 require_once '../config/csrf.php';
 
@@ -108,34 +109,18 @@ try {
         'status'   => [$normalize($data_lama['status']),   $normalize($status)],
     ];
 
-    $stmt_log = $db->prepare("
-        INSERT INTO audit_logs (npk, tabel_terkait, kolom_diubah, nilai_lama, nilai_baru, diubah_oleh)
-        VALUES (:npk, 'pensiunan', :kolom, :lama, :baru, :oleh)
-    ");
-
+    
     // Log kolom terenkripsi (bandingkan plaintext, simpan ciphertext)
     foreach ($kolom_enkripsi as $kolom => $v) {
         if ($v['lama_plain'] !== $v['baru_plain']) {
-            $stmt_log->execute([
-                'npk'   => $npk,
-                'kolom' => $kolom,
-                'lama'  => $v['lama_enc'],
-                'baru'  => $v['baru_enc'],
-                'oleh'  => $_SESSION['admin_username'],
-            ]);
+            audit_tulis($db, $npk, 'pensiunan', $kolom, $v['lama_enc'], $v['baru_enc'], $_SESSION['admin_username']);
         }
     }
 
     // Log kolom plaintext
     foreach ($kolom_plain as $kolom => [$lama, $baru]) {
         if ($lama !== $baru) {
-            $stmt_log->execute([
-                'npk'   => $npk,
-                'kolom' => $kolom,
-                'lama'  => $lama,
-                'baru'  => $baru,
-                'oleh'  => $_SESSION['admin_username'],
-            ]);
+            audit_tulis($db, $npk, 'pensiunan', $kolom, $lama, $baru, $_SESSION['admin_username']);
         }
     }
 

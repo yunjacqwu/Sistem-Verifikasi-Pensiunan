@@ -32,6 +32,14 @@ try {
         AND YEAR(waktu) = YEAR(CURRENT_DATE())
     ")->fetchColumn();
 
+    // Lapor diri kuartal ini ditolak
+    $ditolak = $db->query("
+        SELECT COUNT(*) FROM lapor_diri
+        WHERE status_verifikasi = 'Ditolak'
+        AND QUARTER(waktu) = QUARTER(CURRENT_DATE())
+        AND YEAR(waktu) = YEAR(CURRENT_DATE())
+    ")->fetchColumn();
+
     // Dokumen menunggu verifikasi
     $dok_menunggu = $db->query("
         SELECT COUNT(*) FROM dokumen
@@ -106,6 +114,8 @@ try {
     <link rel="icon" type="image/png" href="/absensi_pensiunan/favicon.png">
     <title>Dashboard - Admin Dana Pensiun Peruri</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/fonts.css">
+    <script defer src="/absensi_pensiunan_dev/static/js/modal-focus.js"></script>
 </head>
 <body class="bg-slate-100 font-sans antialiased text-slate-800">
 
@@ -126,10 +136,11 @@ try {
                 </div>
             </div>
 
+            <?php $q_ini = (int)ceil(date('n') / 3); $t_ini = (int)date('Y'); ?>
             <!-- Kartu statistik -->
             <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
 
-                <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+                <a href="data_pensiunan.php?status=Aktif" class="block col-span-2 md:col-span-3 bg-white rounded-xl shadow-sm border border-slate-100 p-5 hover:shadow-md hover:border-slate-200 transition focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <div class="flex items-center justify-between mb-3">
                         <p class="text-slate-500 text-sm font-medium">Total Pensiunan Aktif</p>
                         <div class="h-9 w-9 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -139,57 +150,49 @@ try {
                         </div>
                     </div>
                     <p class="text-3xl font-bold text-slate-800"><?= number_format($total); ?></p>
-                </div>
+                    <p class="text-xs text-slate-500 mt-1">Status aktif saat ini</p>
+                </a>
 
-                <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
-                    <div class="flex items-center justify-between mb-3">
-                        <p class="text-slate-500 text-sm font-medium">Sudah Lapor Diri</p>
-                        <div class="h-9 w-9 rounded-lg bg-emerald-100 flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </div>
-                    </div>
-                    <p class="text-3xl font-bold text-emerald-600"><?= number_format($disetujui); ?></p>
-                </div>
-
-                <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+                <a href="riwayat_absen.php?status=Menunggu+Verifikasi&amp;kuartal=<?= $q_ini; ?>&amp;tahun=<?= $t_ini; ?>" class="block bg-white rounded-xl shadow-sm border border-slate-100 p-5 hover:shadow-md hover:border-slate-200 transition focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <div class="flex items-center justify-between mb-3">
                         <p class="text-slate-500 text-sm font-medium">Menunggu Verifikasi</p>
                         <div class="h-9 w-9 rounded-lg bg-amber-100 flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                         </div>
                     </div>
-                    <p class="text-3xl font-bold text-amber-500"><?= number_format($menunggu); ?></p>
-                </div>
+                    <p class="text-3xl font-bold text-amber-700"><?= number_format($menunggu); ?></p>
+                    <p class="text-xs text-slate-500 mt-1">Kuartal <?= $q_ini; ?> / <?= $t_ini; ?></p>
+                </a>
 
-                <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
-                    <div class="flex items-center justify-between mb-3">
-                        <p class="text-slate-500 text-sm font-medium">Belum Lapor Diri</p>
-                        <div class="h-9 w-9 rounded-lg bg-red-100 flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </div>
-                    </div>
-                    <p class="text-3xl font-bold text-red-500"><?= number_format($belum_lapor); ?></p>
-                </div>
-
-                <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+                <a href="kelola_dokumen.php?status=Menunggu+Verifikasi" class="block bg-white rounded-xl shadow-sm border border-slate-100 p-5 hover:shadow-md hover:border-slate-200 transition focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <div class="flex items-center justify-between mb-3">
                         <p class="text-slate-500 text-sm font-medium">Dokumen Menunggu</p>
                         <div class="h-9 w-9 rounded-lg bg-orange-100 flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-orange-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
                         </div>
                     </div>
-                    <p class="text-3xl font-bold text-orange-500"><?= number_format($dok_menunggu); ?></p>
-                </div>
+                    <p class="text-3xl font-bold text-orange-700"><?= number_format($dok_menunggu); ?></p>
+                    <p class="text-xs text-slate-500 mt-1">Semua waktu</p>
+                </a>
 
-                <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+                <a href="monitoring_lapor.php?kuartal=<?= $q_ini; ?>&amp;tahun=<?= $t_ini; ?>" class="block bg-white rounded-xl shadow-sm border border-slate-100 p-5 hover:shadow-md hover:border-slate-200 transition focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-slate-500 text-sm font-medium">Belum Lapor Diri</p>
+                        <div class="h-9 w-9 rounded-lg bg-red-100 flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <p class="text-3xl font-bold text-red-600"><?= number_format($belum_lapor); ?></p>
+                    <p class="text-xs text-slate-500 mt-1">Kuartal <?= $q_ini; ?> / <?= $t_ini; ?></p>
+                </a>
+
+                <a href="data_pensiunan.php?status=Aktif&amp;berkas=tidak_lengkap" class="block bg-white rounded-xl shadow-sm border border-slate-100 p-5 hover:shadow-md hover:border-slate-200 transition focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <div class="flex items-center justify-between mb-3">
                         <p class="text-slate-500 text-sm font-medium">Berkas Tidak Lengkap</p>
                         <div class="h-9 w-9 rounded-lg bg-slate-100 flex items-center justify-center">
@@ -199,7 +202,32 @@ try {
                         </div>
                     </div>
                     <p class="text-3xl font-bold text-slate-600"><?= number_format($berkas_kurang); ?></p>
-                </div>
+                    <p class="text-xs text-slate-500 mt-1">Semua waktu</p>
+                </a>
+
+                <a href="riwayat_absen.php?status=Disetujui&amp;kuartal=<?= $q_ini; ?>&amp;tahun=<?= $t_ini; ?>" class="block bg-white rounded-xl shadow-sm border border-slate-100 p-5 hover:shadow-md hover:border-slate-200 transition focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-slate-500 text-sm font-medium">Disetujui Kuartal Ini</p>
+                        <div class="h-9 w-9 rounded-lg bg-emerald-100 flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <p class="text-3xl font-bold text-emerald-600"><?= number_format($disetujui); ?></p>
+                    <p class="text-xs text-slate-500 mt-1">Kuartal <?= $q_ini; ?> / <?= $t_ini; ?></p>
+                </a>
+
+                <a href="riwayat_absen.php?status=Ditolak&amp;kuartal=<?= $q_ini; ?>&amp;tahun=<?= $t_ini; ?>" class="block bg-white rounded-xl shadow-sm border border-slate-100 p-5 hover:shadow-md hover:border-slate-200 transition focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-slate-500 text-sm font-medium">Ditolak Kuartal Ini</p>
+                        <div class="h-9 w-9 rounded-lg bg-red-100 flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </div>
+                    </div>
+                    <p class="text-3xl font-bold text-red-700"><?= number_format($disetujui); ?></p>
+                    <p class="text-xs text-slate-500 mt-1">Kuartal <?= $q_ini; ?> / <?= $t_ini; ?></p>
+                </a>
 
             </div>
 
@@ -223,7 +251,7 @@ try {
                         <tbody class="divide-y divide-slate-100">
                             <?php if (empty($lapor_terbaru)): ?>
                                 <tr>
-                                    <td colspan="3" class="px-6 py-8 text-center text-slate-400">
+                                    <td colspan="3" class="px-6 py-8 text-center text-slate-500">
                                         Belum ada data lapor diri.
                                     </td>
                                 </tr>
@@ -244,11 +272,11 @@ try {
                                 <tr class="hover:bg-slate-50 transition-colors">
                                     <td class="px-6 py-4">
                                         <p class="font-semibold text-slate-800"><?= htmlspecialchars($nama_dec); ?></p>
-                                        <p class="text-slate-400 text-xs font-mono">NPK: <?= htmlspecialchars($lapor['npk']); ?></p>
+                                        <p class="text-slate-500 text-xs font-mono">NPK: <?= htmlspecialchars($lapor['npk']); ?></p>
                                     </td>
                                     <td class="px-6 py-4">
                                         <p class="font-medium text-slate-700"><?= $kuartal . ' / ' . $tgl; ?></p>
-                                        <p class="text-slate-400 text-xs"><?= $jam; ?> WIB</p>
+                                        <p class="text-slate-500 text-xs"><?= $jam; ?> WIB</p>
                                     </td>
                                     <td class="px-6 py-4">
                                         <span class="px-2.5 py-1 rounded-full text-xs font-bold <?= $badge; ?>">
@@ -265,7 +293,7 @@ try {
             <?php if ($jml_belum_lapor > 0): ?>
             <div class="bg-amber-50 border-l-4 border-amber-500 rounded-xl p-4 flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-amber-700 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                     <div>

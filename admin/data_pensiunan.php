@@ -16,6 +16,7 @@ date_default_timezone_set('Asia/Jakarta');
 $filter_jk      = $_GET['jk']       ?? '';
 $filter_status  = $_GET['status']   ?? '';
 $filter_berkas  = $_GET['berkas']   ?? '';
+$filter_lapor   = $_GET['lapor']    ?? '';
 $filter_mnft    = $_GET['mnft']     ?? '';
 $umur_min       = $_GET['umur_min'] ?? '';
 $umur_max       = $_GET['umur_max'] ?? '';
@@ -29,7 +30,7 @@ try {
     // Ambil semua jenis manfaat unik
     $jns_mnft_list = $db->query("SELECT DISTINCT jns_mnft FROM pensiunan WHERE jns_mnft IS NOT NULL AND jns_mnft != '' ORDER BY jns_mnft")->fetchAll(PDO::FETCH_COLUMN);
 
-    // Bangun WHERE untuk filter yang bisa dilakukan di SQL (plaintext)
+    // Filter yang dijalankan di database (kelengkapan berkas, status lapor, jenis, status, umur, NPK)
     $where  = ["1=1"];
     $params = [];
 
@@ -54,56 +55,118 @@ try {
         $params['umur_max'] = (int)$umur_max;
     }
 
-    // Filter kelengkapan berkas
-    $having = '';
-    if ($filter_berkas === 'lengkap') {
-        $having = "HAVING jml_ktp > 0 AND jml_kk > 0";
-    } elseif ($filter_berkas === 'belum') {
-        $having = "HAVING jml_ktp = 0 AND jml_kk = 0";
-    } elseif ($filter_berkas === 'hanya_ktp') {
-        $having = "HAVING jml_ktp > 0 AND jml_kk = 0";
-    } elseif ($filter_berkas === 'hanya_kk') {
-        $having = "HAVING jml_ktp = 0 AND jml_kk > 0";
+    // Potongan SQL untuk kelengkapan berkas dan status lapor kuartal ini
+    $ada_dok  = function ($jns) { return "EXISTS (SELECT 1 FROM dokumen d WHERE d.npk = p.npk AND d.jns_dok = '$jns')"; };
+    $dok_st   = function ($jns, $st) { return "EXISTS (SELECT 1 FROM dokumen d WHERE d.npk = p.npk AND d.jns_dok = '$jns' AND d.status = '$st')"; };
+    $lapor_st = function ($st) { return "EXISTS (SELECT 1 FROM lapor_diri l WHERE l.npk = p.npk AND l.status_verifikasi = '$st' AND QUARTER(l.waktu) = QUARTER(CURRENT_DATE()) AND YEAR(l.waktu) = YEAR(CURRENT_DATE()))"; };
+    $dok_lengkap = "(" . $ada_dok('KTP') . " AND " . $ada_dok('KK') . ")";
+    $dok_disetuj = "(" . $dok_st('KTP', 'Disetujui') . " AND " . $dok_st('KK', 'Disetujui') . ")";
+    $dok_tolak   = "(" . $dok_st('KTP', 'Ditolak') . " OR " . $dok_st('KK', 'Ditolak') . ")";
+
+    switch ($filter_berkas) {
+        case 'lengkap':       $where[] = $dok_lengkap; break;
+        case 'belum':         $where[] = "(NOT " . $ada_dok('KTP') . " AND NOT " . $ada_dok('KK') . ")"; break;
+        case 'hanya_ktp':     $where[] = "(" . $ada_dok('KTP') . " AND NOT " . $ada_dok('KK') . ")"; break;
+        case 'hanya_kk':      $where[] = "(NOT " . $ada_dok('KTP') . " AND " . $ada_dok('KK') . ")"; break;
+        case 'tidak_lengkap': $where[] = "(NOT " . $dok_lengkap . ")"; break;
+        case 'disetujui':     $where[] = $dok_disetuj; break;
+        case 'ditolak':       $where[] = "($dok_lengkap AND NOT $dok_disetuj AND $dok_tolak)"; break;
+        case 'menunggu':      $where[] = "($dok_lengkap AND NOT $dok_disetuj AND NOT $dok_tolak)"; break;
+    }
+
+    switch ($filter_lapor) {
+        case 'disetujui': $where[] = "(p.status = 'Aktif' AND " . $lapor_st('Disetujui') . ")"; break;
+        case 'menunggu':  $where[] = "(p.status = 'Aktif' AND " . $lapor_st('Menunggu Verifikasi') . " AND NOT " . $lapor_st('Disetujui') . ")"; break;
+        case 'belum':     $where[] = "(p.status = 'Aktif' AND NOT " . $lapor_st('Menunggu Verifikasi') . " AND NOT " . $lapor_st('Disetujui') . ")"; break;
+    }
+
+    // Pencarian: NPK dicocokkan di SQL. Nama terenkripsi, jadi hanya kolom nama yang didekripsi,
+    // dan hanya saat kolom pencarian diisi.
+    if ($search !== '') {
+        $kandidat = $db->prepare("SELECT p.npk, p.nama FROM pensiunan p WHERE " . implode(' AND ', $where));
+        foreach ($params as $k => $v) {
+            $kandidat->bindValue(':' . $k, $v);
+        }
+        $kandidat->execute();
+        $cari = strtolower($search);
+        $npk_cocok = [];
+        foreach ($kandidat->fetchAll() as $k) {
+            $nama = strtolower((string)dekripsi($k['nama'], $k['npk']));
+            if (str_contains($nama, $cari) || str_contains(strtolower($k['npk']), $cari)) {
+                $npk_cocok[] = $k['npk'];
+            }
+        }
+        if (empty($npk_cocok)) {
+            $where[] = "1=0";
+        } else {
+            $nama_param = [];
+            foreach ($npk_cocok as $i => $npk_c) {
+                $params['npk' . $i] = $npk_c;
+                $nama_param[] = ':npk' . $i;
+            }
+            $where[] = "p.npk IN (" . implode(',', $nama_param) . ")";
+        }
     }
 
     $where_sql = implode(' AND ', $where);
 
-    // Ambil SEMUA data yang lolos filter SQL dulu (tanpa pagination dulu)
-    $sql_all = "
+    // Jumlah total dan paginasi dilakukan di database
+    $stmt_count = $db->prepare("SELECT COUNT(*) FROM pensiunan p WHERE $where_sql");
+    foreach ($params as $k => $v) {
+        $stmt_count->bindValue(':' . $k, $v);
+    }
+    $stmt_count->execute();
+    $total_data = (int)$stmt_count->fetchColumn();
+    $total_page = max(1, (int)ceil($total_data / $per_page));
+    $page       = min($page, $total_page);
+    $offset     = ($page - 1) * $per_page;
+
+    // Hanya baris halaman ini yang diambil dan didekripsi
+    $stmt_all = $db->prepare("
         SELECT p.*,
-            TIMESTAMPDIFF(YEAR, p.tgl_lhr, CURDATE()) as umur,
-            COALESCE(SUM(d.jns_dok = 'KTP'), 0) as jml_ktp,
-            COALESCE(SUM(d.jns_dok = 'KK'), 0)  as jml_kk
+            TIMESTAMPDIFF(YEAR, p.tgl_lhr, CURDATE()) AS umur,
+            (SELECT COUNT(*) FROM dokumen d WHERE d.npk = p.npk AND d.jns_dok = 'KTP') AS jml_ktp,
+            (SELECT COUNT(*) FROM dokumen d WHERE d.npk = p.npk AND d.jns_dok = 'KK') AS jml_kk,
+            (SELECT d.status FROM dokumen d WHERE d.npk = p.npk AND d.jns_dok = 'KTP' LIMIT 1) AS ktp_status,
+            (SELECT d.status FROM dokumen d WHERE d.npk = p.npk AND d.jns_dok = 'KK' LIMIT 1) AS kk_status,
+            (SELECT l.status_verifikasi FROM lapor_diri l
+                WHERE l.npk = p.npk AND l.status_verifikasi IN ('Menunggu Verifikasi','Disetujui')
+                AND QUARTER(l.waktu) = QUARTER(CURRENT_DATE()) AND YEAR(l.waktu) = YEAR(CURRENT_DATE())
+                ORDER BY (l.status_verifikasi = 'Disetujui') DESC LIMIT 1) AS lapor_status
         FROM pensiunan p
-        LEFT JOIN dokumen d ON d.npk = p.npk
         WHERE $where_sql
-        GROUP BY p.npk
-        $having
-        ORDER BY 
-            CASE WHEN p.status = 'Aktif' THEN 0 ELSE 1 END ASC,
-            p.created_at DESC
-    ";
-    $stmt_all = $db->prepare($sql_all);
+        ORDER BY CASE WHEN p.status = 'Aktif' THEN 0 ELSE 1 END ASC, p.created_at DESC
+        LIMIT :lim OFFSET :off
+    ");
     foreach ($params as $k => $v) {
         $stmt_all->bindValue(':' . $k, $v);
     }
+    $stmt_all->bindValue(':lim', $per_page, PDO::PARAM_INT);
+    $stmt_all->bindValue(':off', $offset, PDO::PARAM_INT);
     $stmt_all->execute();
-    $semua_data = $stmt_all->fetchAll();
+    $daftar = $stmt_all->fetchAll();
 
-    // Ambil id+status dokumen untuk semua npk hasil filter (batch query, hindari N+1)
-    $npk_list_filtered = array_column($semua_data, 'npk');
-    $dokumen_map = [];
-    if (!empty($npk_list_filtered)) {
-        $ph = implode(',', array_fill(0, count($npk_list_filtered), '?'));
-        $stmt_dok_map = $db->prepare("SELECT npk, jns_dok, id, status FROM dokumen WHERE npk IN ($ph)");
-        $stmt_dok_map->execute($npk_list_filtered);
-        foreach ($stmt_dok_map->fetchAll() as $d) {
-            $dokumen_map[$d['npk']][$d['jns_dok']] = ['id' => (int)$d['id'], 'status' => $d['status']];
+    // Status lapor kuartal ini untuk baris halaman ini (dipakai kolom Status Lapor)
+    $lapor_kuartal = [];
+    foreach ($daftar as $r) {
+        if (!empty($r['lapor_status'])) {
+            $lapor_kuartal[$r['npk']] = $r['lapor_status'];
         }
     }
 
-    // Dekripsi nama semua data lalu filter berdasarkan search di PHP
-    foreach ($semua_data as &$row) {
+    // Dokumen (id dan status) untuk baris halaman ini, dipakai preview di modal
+    $npk_page = array_column($daftar, 'npk');
+    $dokumen_map_page = [];
+    if (!empty($npk_page)) {
+        $ph = implode(',', array_fill(0, count($npk_page), '?'));
+        $stmt_dok_map = $db->prepare("SELECT npk, jns_dok, id, status FROM dokumen WHERE npk IN ($ph)");
+        $stmt_dok_map->execute($npk_page);
+        foreach ($stmt_dok_map->fetchAll() as $d) {
+            $dokumen_map_page[$d['npk']][$d['jns_dok']] = ['id' => (int)$d['id'], 'status' => $d['status']];
+        }
+    }
+
+    foreach ($daftar as &$row) {
         $row['nama_plain']     = dekripsi($row['nama'], $row['npk']);
         $row['telp_plain']     = dekripsi($row['telp'], $row['npk']);
         $row['telp2_plain']    = dekripsi($row['telp2'], $row['npk']);
@@ -124,81 +187,26 @@ try {
 
         if ($ktp === 0 && $kk === 0) {
             $row['status_berkas']       = 'Belum Ada';
-            $row['status_berkas_class'] = 'bg-red-100 text-red-600';
+            $row['status_berkas_class'] = 'bg-red-100 text-red-700';
         } elseif ($ktp > 0 && $kk === 0) {
             $row['status_berkas']       = 'Hanya KTP';
-            $row['status_berkas_class'] = 'bg-amber-100 text-amber-600';
+            $row['status_berkas_class'] = 'bg-amber-100 text-amber-800';
         } elseif ($ktp === 0 && $kk > 0) {
             $row['status_berkas']       = 'Hanya KK';
-            $row['status_berkas_class'] = 'bg-amber-100 text-amber-600';
+            $row['status_berkas_class'] = 'bg-amber-100 text-amber-800';
+        } elseif (($row['ktp_status'] ?? '') === 'Disetujui' && ($row['kk_status'] ?? '') === 'Disetujui') {
+            $row['status_berkas']       = 'Lengkap & Disetujui';
+            $row['status_berkas_class'] = 'bg-emerald-100 text-emerald-700';
+        } elseif (($row['ktp_status'] ?? '') === 'Ditolak' || ($row['kk_status'] ?? '') === 'Ditolak') {
+            $row['status_berkas']       = 'Ada yang Ditolak';
+            $row['status_berkas_class'] = 'bg-red-100 text-red-700';
         } else {
-            // Kedua dokumen ada — cek status verifikasinya
-            $stmt_dok = $db->prepare("
-                SELECT jns_dok, status FROM dokumen
-                WHERE npk = :npk AND jns_dok IN ('KTP','KK')
-            ");
-            $stmt_dok->execute(['npk' => $row['npk']]);
-            $dok_status = [];
-            foreach ($stmt_dok->fetchAll() as $d) {
-                $dok_status[$d['jns_dok']] = $d['status'];
-            }
-
-            $ktp_status = $dokumen_map[$row['npk']]['KTP']['status'] ?? '';
-            $kk_status  = $dokumen_map[$row['npk']]['KK']['status']  ?? '';
-
-            if ($ktp_status === 'Disetujui' && $kk_status === 'Disetujui') {
-                $row['status_berkas']       = 'Lengkap & Disetujui';
-                $row['status_berkas_class'] = 'bg-emerald-100 text-emerald-700';
-            } elseif ($ktp_status === 'Ditolak' || $kk_status === 'Ditolak') {
-                $row['status_berkas']       = 'Ada yang Ditolak';
-                $row['status_berkas_class'] = 'bg-red-100 text-red-600';
-            } else {
-                $row['status_berkas']       = 'Menunggu Verifikasi';
-                $row['status_berkas_class'] = 'bg-amber-100 text-amber-600';
-            }
+            $row['status_berkas']       = 'Menunggu Verifikasi';
+            $row['status_berkas_class'] = 'bg-amber-100 text-amber-800';
         }
     }
     unset($row);
 
-    // Filter berdasarkan search nama atau NPK di PHP
-    if (!empty($search)) {
-        $search_lower = strtolower($search);
-        $semua_data = array_filter($semua_data, function($row) use ($search_lower) {
-            return str_contains(strtolower($row['nama_plain']), $search_lower)
-                || str_contains(strtolower($row['npk']), $search_lower);
-        });
-        $semua_data = array_values($semua_data);
-    }
-
-    // Filter berkas lanjutan berdasarkan status verifikasi (dilakukan di PHP)
-    if (in_array($filter_berkas, ['menunggu', 'ditolak', 'disetujui'])) {
-        $map = [
-            'menunggu'  => 'Menunggu Verifikasi',
-            'ditolak'   => 'Ada yang Ditolak',
-            'disetujui' => 'Lengkap & Disetujui',
-        ];
-        $target = $map[$filter_berkas];
-        $semua_data = array_filter($semua_data, function($row) use ($target) {
-            return $row['status_berkas'] === $target;
-        });
-        $semua_data = array_values($semua_data);
-    }
-
-    // Pagination manual setelah filter PHP
-    $total_data = count($semua_data);
-    $total_page = max(1, ceil($total_data / $per_page));
-    $page       = min($page, $total_page);
-    $offset     = ($page - 1) * $per_page;
-    $daftar     = array_slice($semua_data, $offset, $per_page);
-
-    // Subset dokumen_map untuk halaman saat ini (dipakai preview modal di JS)
-    $dokumen_map_page = [];
-    foreach ($daftar as $r) {
-        if (isset($dokumen_map[$r['npk']])) {
-            $dokumen_map_page[$r['npk']] = $dokumen_map[$r['npk']];
-        }
-    }
-    
     // Ambil riwayat lapor diri semua pensiunan yang ditampilkan
     $npk_list = array_column($daftar, 'npk');
     $riwayat_lapor = [];
@@ -249,7 +257,9 @@ $query_string = http_build_query($query_params);
     <link rel="icon" type="image/png" href="/absensi_pensiunan/favicon.png">
     <title>Data Pensiunan - Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="/absensi_pensiunan_dev/static/vendor/alpine-3.14.1.min.js" integrity="sha384-l8f0VcPi/M1iHPv8egOnY/15TDwqgbOR1anMIJWvU6nLRgZVLTLSaNqi/TOoT5Fh"></script>
+    <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/fonts.css">
+    <script defer src="/absensi_pensiunan_dev/static/js/modal-focus.js"></script>
 </head>
 <body class="bg-slate-100 font-sans antialiased text-slate-800">
 <div class="flex h-screen overflow-hidden">
@@ -311,7 +321,7 @@ $query_string = http_build_query($query_params);
                         <input type="number" name="umur_min" value="<?= htmlspecialchars($umur_min); ?>"
                                placeholder="Umur min" min="0" max="120"
                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500">
-                        <span class="text-slate-400 text-sm">–</span>
+                        <span class="text-slate-500 text-sm">–</span>
                         <input type="number" name="umur_max" value="<?= htmlspecialchars($umur_max); ?>"
                                placeholder="Umur max" min="0" max="120"
                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500">
@@ -334,20 +344,22 @@ $query_string = http_build_query($query_params);
                         <?php endforeach; ?>
                     </select>
 
-                    <!-- Status Pensiun -->
-                    <select name="status" class="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="">Semua Status</option>
-                        <option value="Aktif"      <?= $filter_status === 'Aktif'      ? 'selected' : ''; ?>>Aktif</option>
-                        <option value="Tidak Aktif" <?= $filter_status === 'Tidak Aktif' ? 'selected' : ''; ?>>Tidak Aktif</option>
+                    <!-- Status Lapor Kuartal Ini -->
+                    <select name="lapor" class="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Semua Status Lapor</option>
+                        <option value="disetujui" <?= $filter_lapor === 'disetujui' ? 'selected' : ''; ?>>Disetujui</option>
+                        <option value="menunggu" <?= $filter_lapor === 'menunggu' ? 'selected' : ''; ?>>Menunggu Verifikasi</option>
+                        <option value="belum" <?= $filter_lapor === 'belum' ? 'selected' : ''; ?>>Belum Lapor</option>
                     </select>
 
                     <!-- Kelengkapan Berkas -->
                     <select name="berkas" class="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="">Semua Berkas</option>
+                        <option value="">Semua Kelengkapan Berkas</option>
                         <option value="lengkap"   <?= $filter_berkas === 'lengkap'   ? 'selected' : ''; ?>>Lengkap (KTP & KK)</option>
                         <option value="belum"     <?= $filter_berkas === 'belum'     ? 'selected' : ''; ?>>Belum Ada Dokumen</option>
                         <option value="hanya_ktp" <?= $filter_berkas === 'hanya_ktp' ? 'selected' : ''; ?>>Hanya KTP</option>
                         <option value="hanya_kk"  <?= $filter_berkas === 'hanya_kk'  ? 'selected' : ''; ?>>Hanya KK</option>
+                        <option value="tidak_lengkap" <?= $filter_berkas === 'tidak_lengkap' ? 'selected' : ''; ?>>Belum Lengkap (KTP atau KK kurang)</option>
                         <option value="menunggu"  <?= $filter_berkas === 'menunggu'  ? 'selected' : ''; ?>>Menunggu Verifikasi</option>
                         <option value="ditolak"   <?= $filter_berkas === 'ditolak'   ? 'selected' : ''; ?>>Ada yang Ditolak</option>
                         <option value="disetujui" <?= $filter_berkas === 'disetujui' ? 'selected' : ''; ?>>Lengkap & Disetujui</option>
@@ -373,7 +385,7 @@ $query_string = http_build_query($query_params);
                         <input type="text" name="search" value="<?= htmlspecialchars($search); ?>"
                                placeholder="Cari NPK atau Nama..."
                                class="pl-10 pr-4 py-2 w-full border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </div>
@@ -400,7 +412,7 @@ $query_string = http_build_query($query_params);
                                 <th class="px-4 py-3 text-left font-semibold">NPK / Nama</th>
                                 <th class="px-4 py-3 text-left font-semibold">Umur</th>
                                 <th class="px-4 py-3 text-left font-semibold">Jenis Pensiunan</th>
-                                <th class="px-4 py-3 text-left font-semibold">Status</th>
+                                <th class="px-4 py-3 text-left font-semibold">Status Lapor</th>
                                 <th class="px-4 py-3 text-left font-semibold">Kelengkapan Berkas</th>
                                 <th class="px-4 py-3 text-center font-semibold">Aksi</th>
                             </tr>
@@ -408,7 +420,7 @@ $query_string = http_build_query($query_params);
                         <tbody class="divide-y divide-slate-100">
                             <?php if (empty($daftar)): ?>
                                 <tr>
-                                    <td colspan="6" class="px-6 py-10 text-center text-slate-400">
+                                    <td colspan="6" class="px-6 py-10 text-center text-slate-500">
                                         Tidak ada data yang sesuai filter.
                                     </td>
                                 </tr>
@@ -417,7 +429,7 @@ $query_string = http_build_query($query_params);
                                 <tr class="hover:bg-slate-50 transition-colors">
                                     <td class="px-4 py-3">
                                         <p class="font-semibold text-slate-800"><?= htmlspecialchars($row['nama_plain']); ?></p>
-                                        <p class="text-xs text-slate-400 font-mono">NPK: <?= htmlspecialchars($row['npk']); ?></p>
+                                        <p class="text-xs text-slate-500 font-mono">NPK: <?= htmlspecialchars($row['npk']); ?></p>
                                     </td>
                                     <td class="px-4 py-3 text-slate-700">
                                         <?= $row['umur'] !== null ? $row['umur'] . ' thn' : '-'; ?>
@@ -426,10 +438,14 @@ $query_string = http_build_query($query_params);
                                         <?= htmlspecialchars($row['jns_mnft'] ?: '-'); ?>
                                     </td>
                                     <td class="px-4 py-3">
-                                        <?php if ($row['status'] === 'Aktif'): ?>
-                                            <span class="bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full text-xs font-bold">Aktif</span>
-                                        <?php else: ?>
+                                        <?php if ($row['status'] !== 'Aktif'): ?>
                                             <span class="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full text-xs font-bold">Tidak Aktif</span>
+                                        <?php elseif (($lapor_kuartal[$row['npk']] ?? '') === 'Disetujui'): ?>
+                                            <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">Disetujui</span>
+                                        <?php elseif (isset($lapor_kuartal[$row['npk']])): ?>
+                                            <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">Menunggu Verifikasi</span>
+                                        <?php else: ?>
+                                            <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">Belum Lapor</span>
                                         <?php endif; ?>
                                     </td>
                                     <td class="px-4 py-3">
@@ -441,7 +457,7 @@ $query_string = http_build_query($query_params);
                                         <div class="flex items-center justify-center gap-1">
 
                                             <!-- Detail -->
-                                            <button @click="bukaDetail(<?= htmlspecialchars(json_encode($row), ENT_QUOTES); ?>)"
+                                            <button @click="bukaDetail(<?= htmlspecialchars(json_encode($row['npk']), ENT_QUOTES); ?>)"
                                                     class="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Detail">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -504,7 +520,7 @@ $query_string = http_build_query($query_params);
             </div>
 
             <!-- Modal Detail -->
-            <div x-show="modalDetail" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-0 !mt-0" style="display:none;">
+            <div x-show="modalDetail" @keydown.escape.window="modalDetail = false; editMode = false" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-0 !mt-0" style="display:none;">
                 <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col max-h-[90vh] border border-slate-200">
 
                     <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-2xl">
@@ -513,7 +529,7 @@ $query_string = http_build_query($query_params);
                             <p class="text-sm text-slate-500 font-mono" x-text="'NPK: ' + aktif.npk"></p>
                         </div>
                         <button @click="modalDetail = false"
-                                class="p-2 rounded-full border border-slate-200 text-slate-400 hover:text-red-500 transition-colors">
+                                class="p-2 rounded-full border border-slate-200 text-slate-500 hover:text-red-500 transition-colors">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
@@ -575,7 +591,7 @@ $query_string = http_build_query($query_params);
                                         ?>
                                         <?php foreach ($fields_identitas as $f): ?>
                                         <div <?= ($f['name'] === 'nama_lengkap' || $f['name'] === 'alamat') ? 'class="md:col-span-2"' : ''; ?>>
-                                            <label class="text-xs text-slate-400 font-semibold block mb-1"><?= $f['label']; ?></label>
+                                            <label class="text-xs text-slate-500 font-semibold block mb-1"><?= $f['label']; ?></label>
                                             <span x-show="!editMode" x-text="aktif.<?= $f['key']; ?> || '—'" class="text-slate-800 block py-1 text-sm"></span>
                                             <?php if ($f['type'] === 'select_jk'): ?>
                                                 <select x-show="editMode" name="<?= $f['name']; ?>" class="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
@@ -592,7 +608,7 @@ $query_string = http_build_query($query_params);
                                         </div>
                                         <?php endforeach; ?>
                                         <div class="md:col-span-2">
-                                            <label class="text-xs text-slate-400 font-semibold block mb-1">Alamat</label>
+                                            <label class="text-xs text-slate-500 font-semibold block mb-1">Alamat</label>
                                             <span x-show="!editMode" x-text="aktif.alamat_plain || '—'" class="text-slate-800 block py-1 text-sm"></span>
                                             <textarea x-show="editMode" name="alamat" rows="2"
                                                       class="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
@@ -601,17 +617,17 @@ $query_string = http_build_query($query_params);
                                         <!-- Nama Pensiunan Asli — hanya tampil jika sudah pernah alih status -->
                                         <template x-if="aktif.jns_penerima && aktif.jns_penerima !== 'Pensiunan Asli'">
                                             <div class="md:col-span-2">
-                                                <label class="text-xs text-slate-400 font-semibold block mb-1">
+                                                <label class="text-xs text-slate-500 font-semibold block mb-1">
                                                     Nama Pensiunan Asli
                                                 </label>
                                                 <div class="flex items-center gap-2">
                                                     <span x-text="aktif.nama_penerima_asli || '—'"
                                                         class="text-slate-800 block py-1 text-sm flex-1"></span>
-                                                    <span class="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-semibold">
+                                                    <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">
                                                         Read-only
                                                     </span>
                                                 </div>
-                                                <p class="text-xs text-slate-400 mt-0.5">
+                                                <p class="text-xs text-slate-500 mt-0.5">
                                                     Nama pensiunan asli sebelum alih status ke
                                                     <span class="font-semibold" x-text="aktif.jns_penerima"></span>
                                                 </p>
@@ -625,25 +641,25 @@ $query_string = http_build_query($query_params);
                                     <h4 class="text-xs font-bold text-blue-600 uppercase tracking-wider mb-3">Kepensiunan</h4>
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
                                         <div>
-                                            <label class="text-xs text-slate-400 font-semibold block mb-1">Tanggal Masuk</label>
+                                            <label class="text-xs text-slate-500 font-semibold block mb-1">Tanggal Masuk</label>
                                             <span x-show="!editMode" x-text="aktif.tgl_msk_fmt || '—'" class="text-slate-800 block py-1 text-sm"></span>
                                             <input x-show="editMode" type="date" name="tanggal_masuk" :value="aktif.tgl_msk"
                                                    class="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
                                         </div>
                                         <div>
-                                            <label class="text-xs text-slate-400 font-semibold block mb-1">Tanggal Pensiun</label>
+                                            <label class="text-xs text-slate-500 font-semibold block mb-1">Tanggal Pensiun</label>
                                             <span x-show="!editMode" x-text="aktif.tgl_psn_fmt || '—'" class="text-slate-800 block py-1 text-sm"></span>
                                             <input x-show="editMode" type="date" name="tanggal_pensiun" :value="aktif.tgl_psn"
                                                    class="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
                                         </div>
                                         <div>
-                                            <label class="text-xs text-slate-400 font-semibold block mb-1">Jenis Manfaat</label>
+                                            <label class="text-xs text-slate-500 font-semibold block mb-1">Jenis Manfaat</label>
                                             <span x-show="!editMode" x-text="aktif.jns_mnft || '—'" class="text-slate-800 block py-1 text-sm"></span>
                                             <input x-show="editMode" type="text" name="jenis_manfaat_pensiun" :value="aktif.jns_mnft"
                                                    class="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
                                         </div>
                                         <div>
-                                            <label class="text-xs text-slate-400 font-semibold block mb-1">Status</label>
+                                            <label class="text-xs text-slate-500 font-semibold block mb-1">Status</label>
                                             <span x-show="!editMode" x-text="aktif.status" class="font-bold text-blue-700 block py-1 text-sm"></span>
                                             <select x-show="editMode" name="status_pensiun" required
                                                     class="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
@@ -675,7 +691,7 @@ $query_string = http_build_query($query_params);
 
                                     <template x-if="dokumenMap[aktif.npk]?.[jenis]">
                                         <div class="w-full flex flex-col items-center gap-3">
-                                            <div class="w-full h-32 flex flex-col items-center justify-center border border-slate-200 rounded-lg bg-white text-slate-400">
+                                            <div class="w-full h-32 flex flex-col items-center justify-center border border-slate-200 rounded-lg bg-white text-slate-500">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                                                 </svg>
@@ -685,8 +701,8 @@ $query_string = http_build_query($query_params);
                                             <span class="text-xs font-bold px-3 py-1 rounded-full"
                                                 :class="{
                                                     'bg-emerald-100 text-emerald-700': dokumenMap[aktif.npk][jenis].status === 'Disetujui',
-                                                    'bg-red-100 text-red-600': dokumenMap[aktif.npk][jenis].status === 'Ditolak',
-                                                    'bg-amber-100 text-amber-600': dokumenMap[aktif.npk][jenis].status === 'Menunggu Verifikasi'
+                                                    'bg-red-100 text-red-700': dokumenMap[aktif.npk][jenis].status === 'Ditolak',
+                                                    'bg-amber-100 text-amber-800': dokumenMap[aktif.npk][jenis].status === 'Menunggu Verifikasi'
                                                 }"
                                                 x-text="dokumenMap[aktif.npk][jenis].status"></span>
 
@@ -699,13 +715,13 @@ $query_string = http_build_query($query_params);
 
                                     <template x-if="!dokumenMap[aktif.npk]?.[jenis]">
                                         <div class="w-full flex flex-col items-center gap-3">
-                                            <div class="w-full h-32 flex flex-col items-center justify-center border border-dashed border-slate-300 rounded-lg bg-white text-slate-400">
+                                            <div class="w-full h-32 flex flex-col items-center justify-center border border-dashed border-slate-300 rounded-lg bg-white text-slate-500">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-300 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                                 </svg>
                                                 <p class="text-xs text-center">Belum diunggah</p>
                                             </div>
-                                            <span class="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-500">Belum Ada</span>
+                                            <span class="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-600">Belum Ada</span>
                                         </div>
                                     </template>
 
@@ -723,7 +739,7 @@ $query_string = http_build_query($query_params);
                                         <!-- Header tahun -->
                                         <div class="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
                                             <span class="font-bold text-slate-700 text-sm" x-text="tahun"></span>
-                                            <span class="text-xs text-slate-400">
+                                            <span class="text-xs text-slate-500">
                                                 <span x-text="Object.keys(riwayatLapor[aktif.npk]?.[tahun] || {}).length"></span>/4 laporan
                                             </span>
                                         </div>
@@ -734,7 +750,7 @@ $query_string = http_build_query($query_params);
                                                 <div class="p-3 flex flex-col items-center gap-2">
 
                                                     <span class="text-xs font-bold text-slate-500" x-text="q"></span>
-                                                    <span class="text-xs text-slate-400 text-center leading-tight"
+                                                    <span class="text-xs text-slate-500 text-center leading-tight"
                                                         x-text="q === 'Q1' ? 'Jan–Mar' : q === 'Q2' ? 'Apr–Jun' : q === 'Q3' ? 'Jul–Sep' : 'Okt–Des'">
                                                     </span>
 
@@ -814,7 +830,7 @@ $query_string = http_build_query($query_params);
             </div>
 
             <!-- Modal Alih Status Penerima -->
-            <div x-show="modalAlihStatus" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-[60] p-4 !mt-0" style="display:none;">
+            <div x-show="modalAlihStatus" @keydown.escape.window="modalAlihStatus = false" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-[60] p-4 !mt-0" style="display:none;">
                 <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 flex flex-col max-h-[90vh]">
 
                     <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-2xl">
@@ -822,7 +838,7 @@ $query_string = http_build_query($query_params);
                             <h3 class="font-bold text-slate-800 text-lg">Alih Status Penerima</h3>
                             <p class="text-xs text-slate-500 font-mono mt-0.5" x-text="'NPK: ' + alihNpk + ' — ' + alihNama"></p>
                         </div>
-                        <button @click="modalAlihStatus = false" class="p-2 rounded-full border border-slate-200 text-slate-400 hover:text-red-500">
+                        <button @click="modalAlihStatus = false" class="p-2 rounded-full border border-slate-200 text-slate-500 hover:text-red-500">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                             </svg>
@@ -914,7 +930,7 @@ $query_string = http_build_query($query_params);
                             </button>
                             <button type="submit"
                                     :disabled="!alihJenisPenerima || !!alihValidasiUmur"
-                                    :class="(!alihJenisPenerima || !!alihValidasiUmur) ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-amber-500 hover:bg-amber-600 text-white'"
+                                    :class="(!alihJenisPenerima || !!alihValidasiUmur) ? 'bg-slate-300 text-slate-700 cursor-not-allowed' : 'bg-amber-500 hover:bg-amber-600 text-white'"
                                     class="flex-1 py-2.5 rounded-xl font-bold text-sm transition-colors">
                                 Konfirmasi Alih Status
                             </button>
@@ -924,14 +940,14 @@ $query_string = http_build_query($query_params);
             </div>
 
             <!-- Modal Preview Dokumen (dari tab Berkas) -->
-            <div x-show="modalDok" class="fixed inset-0 bg-slate-900/80 flex items-center justify-center z-[60] p-4" style="display:none;">
+            <div x-show="modalDok" @keydown.escape.window="modalDok = false" class="fixed inset-0 bg-slate-900/80 flex items-center justify-center z-[60] p-4" style="display:none;">
                 <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden">
                     <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
                         <div>
                             <h3 class="font-bold text-slate-800" x-text="dokNama + ' — ' + dokJenis"></h3>
-                            <p class="text-xs text-slate-400 mt-0.5">Dokumen Terenkripsi</p>
+                            <p class="text-xs text-slate-500 mt-0.5">Dokumen Terenkripsi</p>
                         </div>
-                        <button @click="modalDok = false" class="p-2 rounded-full border border-slate-200 text-slate-400 hover:text-red-500">
+                        <button @click="modalDok = false" class="p-2 rounded-full border border-slate-200 text-slate-500 hover:text-red-500">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                             </svg>
@@ -974,15 +990,17 @@ $query_string = http_build_query($query_params);
                 </div>
             </div>
             <!-- Modal Reset PIN -->
-            <div x-show="modalReset" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-0 !mt-0" style="display:none;">
+            <div x-show="modalReset" x-effect="if (!modalReset) { resetPinHasil = ''; resetPinError = ''; }" @keydown.escape.window="modalReset = false" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-0 !mt-0" style="display:none;">
                 <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-                    <form action="proses_reset_pin.php" method="POST">
+
+                    <!-- Tahap 1: konfirmasi -->
+                    <form x-show="!resetPinHasil" @submit.prevent="resetPinKirim($el)" method="POST">
                         <?= csrf_field(); ?>
                         <input type="hidden" name="npk" :value="resetNpk">
                         <div class="text-center">
                             <div class="mx-auto h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center mb-4">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9" />
                                 </svg>
                             </div>
                             <h3 class="text-lg font-bold text-slate-800">Reset PIN</h3>
@@ -991,10 +1009,10 @@ $query_string = http_build_query($query_params);
                             <div class="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl text-left">
                                 <p class="text-sm text-amber-800 font-semibold mb-1">⚠️ Konfirmasi Reset PIN</p>
                                 <p class="text-xs text-amber-700">
-                                    PIN pensiunan akan direset kembali ke <strong>NPK mereka</strong>.
-                                    Pensiunan wajib mengganti PIN saat login berikutnya.
+                                    PIN sementara baru akan dibuat acak. Pensiunan wajib mengganti PIN saat login berikutnya.
                                 </p>
                             </div>
+                            <p x-show="resetPinError" x-text="resetPinError" class="mt-3 text-sm text-red-600 font-semibold"></p>
                         </div>
 
                         <div class="flex gap-3 mt-6">
@@ -1002,17 +1020,40 @@ $query_string = http_build_query($query_params);
                                     class="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50 text-sm">
                                 Batal
                             </button>
-                            <button type="submit"
-                                    class="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm">
-                                Konfirmasi Reset
+                            <button type="submit" :disabled="resetPinLoading"
+                                    class="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white font-bold text-sm">
+                                <span x-text="resetPinLoading ? 'Memproses...' : 'Konfirmasi Reset'"></span>
                             </button>
                         </div>
                     </form>
+
+                    <!-- Tahap 2: PIN sementara (tampil satu kali) -->
+                    <div x-show="resetPinHasil" class="text-center">
+                        <div class="mx-auto h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-800">PIN Berhasil Di-reset</h3>
+                        <p class="text-sm text-slate-500 mt-1">NPK: <span class="font-bold" x-text="resetNpk"></span></p>
+
+                        <div class="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-5">
+                            <p class="text-sm font-semibold text-amber-800">PIN sementara — tampil satu kali</p>
+                            <p class="mt-2 text-3xl font-mono font-bold tracking-[0.3em] text-slate-900" x-text="resetPinHasil"></p>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-3">Sampaikan PIN ini ke pensiunan. PIN tidak akan ditampilkan lagi setelah modal ditutup.</p>
+
+                        <button type="button" @click="modalReset = false"
+                                class="mt-5 w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm">
+                            Selesai
+                        </button>
+                    </div>
+
                 </div>
             </div>
 
             <!-- Modal Nonaktifkan -->
-            <div x-show="modalNonaktif" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-0 !mt-0" style="display:none;">
+            <div x-show="modalNonaktif" @keydown.escape.window="modalNonaktif = false" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-0 !mt-0" style="display:none;">
                 <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
                     <form action="proses_nonaktifkan_pensiunan.php" method="POST">
                         <?= csrf_field(); ?>
@@ -1043,14 +1084,14 @@ $query_string = http_build_query($query_params);
             </div>
 
             <!-- Modal Tambah Pensiunan -->
-            <div x-show="modalTambah" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-0 !mt-0" style="display:none;">
+            <div x-show="modalTambah" @keydown.escape.window="modalTambah = false" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-0 !mt-0" style="display:none;">
                 <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
                     <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-2xl">
                         <div>
                             <h3 class="font-bold text-slate-800 text-xl">Tambah Pensiunan Baru</h3>
                             <p class="text-sm text-slate-500 mt-0.5">PIN awal akan dibuat otomatis oleh sistem.</p>
                         </div>
-                        <button @click="modalTambah = false" class="p-2 rounded-full border border-slate-200 text-slate-400 hover:text-red-500">
+                        <button @click="modalTambah = false" class="p-2 rounded-full border border-slate-200 text-slate-500 hover:text-red-500">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
@@ -1141,7 +1182,9 @@ function pensiunanApp() {
         editMode:     false,
         aktif:        {},
         resetNpk:     '',
-        resetPin:     '',
+        resetPinHasil: '',
+        resetPinError: '',
+        resetPinLoading: false,
         nonaktifNpk:  '',
         nonaktifStatus: '',
         riwayatLapor: <?= json_encode($riwayat_lapor); ?>,
@@ -1182,14 +1225,6 @@ function pensiunanApp() {
             }
         },
 
-        generatePin() {
-            let pin;
-            do {
-                pin = String(Math.floor(1000 + Math.random() * 9000));
-            } while (/^(\d)\1{3}$/.test(pin)); // hindari 1111, 2222, ..., 9999
-            return pin;
-        },
-
         bukaDokumen(id, nama, jenis) {
             this.dokId      = id;
             this.dokNama    = nama;
@@ -1218,17 +1253,44 @@ function pensiunanApp() {
                 .catch(() => { this.dokLoading = false; });
         },
 
-        bukaDetail(data) {
-            this.aktif    = data;
-            this.aktif.jns_penerima = data.jns_penerima || 'Pensiunan Asli';
-            this.aktif.nama_penerima_asli    = data.nama_asli_plain || '';
-            this.tab      = 'identitas';
-            this.editMode = false;
-            this.modalDetail = true;
+        async bukaDetail(npk) {
+            try {
+                const r = await fetch('lihat_profil.php?npk=' + encodeURIComponent(npk));
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                this.aktif       = await r.json();
+                this.aktif.nama_penerima_asli = this.aktif.nama_asli_plain || '';
+                this.tab         = 'identitas';
+                this.editMode    = false;
+                this.modalDetail = true;
+            } catch (e) {
+                alert('Data profil tidak bisa dibuka. Coba lagi.');
+            }
         },
+        async resetPinKirim(form) {
+            this.resetPinLoading = true;
+            this.resetPinError = '';
+            try {
+                const r = await fetch('proses_reset_pin.php', {
+                    method: 'POST',
+                    body: new FormData(form),
+                    headers: { 'Accept': 'application/json' },
+                });
+                const data = await r.json().catch(() => null);
+                if (!r.ok || !data || !data.pin) {
+                    throw new Error((data && data.error) || 'Gagal reset PIN. Coba lagi.');
+                }
+                this.resetPinHasil = data.pin;
+            } catch (e) {
+                this.resetPinError = e.message;
+            } finally {
+                this.resetPinLoading = false;
+            }
+        },
+
         bukaResetPin(npk) {
             this.resetNpk = npk;
-            this.resetPin = this.generatePin();
+            this.resetPinHasil = '';
+            this.resetPinError = '';
             this.modalReset = true;
         },
         bukaNonaktif(npk, status) {
