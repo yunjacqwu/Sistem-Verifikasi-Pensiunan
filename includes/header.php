@@ -28,7 +28,7 @@ if ($is_user && isset($db)) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="/absensi_pensiunan/favicon.png">
-    <title><?= isset($page_title) ? htmlspecialchars($page_title) . ' - ' : ''; ?>Dana Pensiun Perum Peruri</title>
+    <title><?= isset($page_title) ? htmlspecialchars($page_title) . ' - ' : ''; ?>Dana Pensiun Pegawai Perum Peruri</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -41,6 +41,7 @@ if ($is_user && isset($db)) {
             }
         }
     </script>
+    <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/fonts.css">
 </head>
 <body class="bg-slateate-100 font-sans antialiased text-slate-800 min-h-screen flex flex-col">
 
@@ -48,9 +49,12 @@ if ($is_user && isset($db)) {
     <nav class="bg-white shadow-sm p-4 sticky top-0 z-50">
         <div class="max-w-4xl mx-auto flex justify-between items-center gap-4">
 
-            <h1 class="text-base md:text-xl font-bold text-blue-600 tracking-tight">
-                Dana Pensiun Perum Peruri
-            </h1>
+            <div class="flex items-center gap-3 min-w-0">
+                <img src="/absensi_pensiunan_dev/sikepen.png" alt="Logo Dana Pensiun Peruri" class="h-6 sm:h-8 md:h-10 w-auto flex-shrink-0">
+                <h1 class="text-sm leading-tight sm:text-base md:text-xl font-bold text-blue-600 tracking-tight min-w-0">
+                    Dana Pensiun Pegawai Perum Peruri
+                </h1>
+            </div>
 
             <?php if ($is_user || $is_admin): ?>
             <div class="flex items-center gap-3">

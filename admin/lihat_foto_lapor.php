@@ -2,6 +2,7 @@
 // file: admin/lihat_foto_lapor.php
 require_once '../config/bootstrap.php';
 require_once '../config/koneksi.php';
+require_once '../config/audit.php';
 require_once '../config/crypto.php';
 
 if (!isset($_SESSION['admin_logged_in'])) {
@@ -44,6 +45,15 @@ try {
     } else {
         $mime = 'image/jpeg';
         $ext  = 'jpg';
+    }
+
+    // F-06: catat setiap akses foto ke audit sebelum dikirim. Jika pencatatan gagal, foto tidak dikirim.
+    try {
+                audit_tulis($db, $row['npk'], 'lapor_diri', 'akses_foto', null, $mode === 'download' ? 'Unduh foto lapor' : 'Lihat foto lapor', $_SESSION['admin_username']);
+    } catch (PDOException $e) {
+        error_log('Audit akses foto gagal: ' . get_class($e));
+        http_response_code(500);
+        exit;
     }
 
     $disposition = $mode === 'download'

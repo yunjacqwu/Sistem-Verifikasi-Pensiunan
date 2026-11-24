@@ -2,6 +2,7 @@
 // file: users/proses_ganti_pin.php
 require_once '../config/bootstrap.php';
 require_once '../config/koneksi.php';
+require_once '../config/audit.php';
 require_once '../config/crypto.php';
 require_once '../config/csrf.php';
 
@@ -56,11 +57,7 @@ try {
     $_SESSION['is_first_login'] = false;
 
     // Catat audit log
-    $stmt_log = $db->prepare("
-        INSERT INTO audit_logs (npk, tabel_terkait, kolom_diubah, nilai_lama, nilai_baru, diubah_oleh)
-        VALUES (:npk, 'pensiunan', 'pin_hash', NULL, NULL, :oleh)
-    ");
-    $stmt_log->execute(['npk' => $npk, 'oleh' => $npk]);
+        audit_tulis($db, $npk, 'pensiunan', 'pin_hash', null, null, $npk);
 
     echo json_encode(['sukses' => true]);
     exit;

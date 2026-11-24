@@ -2,6 +2,7 @@
 // file: admin/proses_nonaktifkan_pensiunan.php
 require_once '../config/bootstrap.php';
 require_once '../config/koneksi.php';
+require_once '../config/audit.php';
 require_once '../config/crypto.php';
 require_once '../config/csrf.php';
 
@@ -42,16 +43,7 @@ try {
     $stmt->execute(['status' => $status_baru, 'npk' => $npk]);
 
     // Catat audit log
-    $stmt_log = $db->prepare("
-        INSERT INTO audit_logs (npk, tabel_terkait, kolom_diubah, nilai_lama, nilai_baru, diubah_oleh)
-        VALUES (:npk, 'pensiunan', 'status', :lama, :baru, :oleh)
-    ");
-    $stmt_log->execute([
-        'npk'  => $npk,
-        'lama' => $data['status'],
-        'baru' => $status_baru,
-        'oleh' => $_SESSION['admin_username'],
-    ]);
+        audit_tulis($db, $npk, 'pensiunan', 'status', $data['status'], $status_baru, $_SESSION['admin_username']);
 
     $pesan = $status_baru === 'Tidak Aktif'
         ? "Pensiunan NPK $npk berhasil dinonaktifkan."

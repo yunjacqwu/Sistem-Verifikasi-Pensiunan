@@ -56,6 +56,8 @@ $label_kuartal = [1=>'Q1 (Jan–Mar)', 2=>'Q2 (Apr–Jun)', 3=>'Q3 (Jul–Sep)',
     <link rel="icon" type="image/png" href="/absensi_pensiunan/favicon.png">
     <title>Monitoring Lapor Diri - Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/fonts.css">
+    <script defer src="/absensi_pensiunan_dev/static/js/modal-focus.js"></script>
 </head>
 <body class="bg-slate-100 font-sans antialiased text-slate-800">
 <div class="flex h-screen overflow-hidden">
@@ -131,14 +133,14 @@ $label_kuartal = [1=>'Q1 (Jan–Mar)', 2=>'Q2 (Apr–Jun)', 3=>'Q3 (Jul–Sep)',
                         <tbody class="divide-y divide-slate-100">
                             <?php if (empty($semua)): ?>
                                 <tr>
-                                    <td colspan="7" class="px-6 py-10 text-center text-slate-400">
+                                    <td colspan="7" class="px-6 py-10 text-center text-slate-500">
                                         Semua pensiunan sudah lapor diri pada periode ini.
                                     </td>
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($semua as $i => $row): ?>
                                 <tr class="hover:bg-amber-50 transition-colors">
-                                    <td class="px-4 py-3 text-slate-400"><?= $i + 1; ?></td>
+                                    <td class="px-4 py-3 text-slate-500"><?= $i + 1; ?></td>
                                     <td class="px-4 py-3 font-mono text-xs font-semibold">
                                         <?= htmlspecialchars($row['npk']); ?>
                                     </td>

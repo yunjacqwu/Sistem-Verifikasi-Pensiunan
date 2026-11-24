@@ -16,21 +16,22 @@ $filter_jk     = $_GET['jk'] ?? '';
 $filter_status = $_GET['status'] ?? '';
 $filter_mnft   = $_GET['mnft'] ?? '';
 $filter_berkas = $_GET['berkas'] ?? '';
+$filter_lapor = $_GET['lapor'] ?? '';
 $umur_min      = $_GET['umur_min'] ?? '';
 $umur_max      = $_GET['umur_max'] ?? '';
 
 try {
-    // === Bangun WHERE (filter yang bisa dilakukan di SQL) ===
+    // === Bangun WHERE: filter dijalankan di database (sama dengan data_pensiunan.php) ===
     $where  = ["1=1"];
     $params = [];
 
     if (!empty($filter_jk)) {
-        $where[]      = "p.jk = :jk";
-        $params['jk'] = $filter_jk;
+        $where[]       = "p.jk = :jk";
+        $params['jk']  = $filter_jk;
     }
     if (!empty($filter_status)) {
-        $where[]          = "p.status = :status";
-        $params['status'] = $filter_status;
+        $where[]           = "p.status = :status";
+        $params['status']  = $filter_status;
     }
     if (!empty($filter_mnft)) {
         $where[]        = "p.jns_mnft = :mnft";
@@ -45,30 +46,66 @@ try {
         $params['umur_max'] = (int)$umur_max;
     }
 
-    $having = '';
-    if ($filter_berkas === 'lengkap') {
-        $having = "HAVING jml_ktp > 0 AND jml_kk > 0";
-    } elseif ($filter_berkas === 'belum') {
-        $having = "HAVING jml_ktp = 0 AND jml_kk = 0";
-    } elseif ($filter_berkas === 'hanya_ktp') {
-        $having = "HAVING jml_ktp > 0 AND jml_kk = 0";
-    } elseif ($filter_berkas === 'hanya_kk') {
-        $having = "HAVING jml_ktp = 0 AND jml_kk > 0";
+    $ada_dok  = function ($jns) { return "EXISTS (SELECT 1 FROM dokumen d WHERE d.npk = p.npk AND d.jns_dok = '$jns')"; };
+    $dok_st   = function ($jns, $st) { return "EXISTS (SELECT 1 FROM dokumen d WHERE d.npk = p.npk AND d.jns_dok = '$jns' AND d.status = '$st')"; };
+    $lapor_st = function ($st) { return "EXISTS (SELECT 1 FROM lapor_diri l WHERE l.npk = p.npk AND l.status_verifikasi = '$st' AND QUARTER(l.waktu) = QUARTER(CURRENT_DATE()) AND YEAR(l.waktu) = YEAR(CURRENT_DATE()))"; };
+    $dok_lengkap = "(" . $ada_dok('KTP') . " AND " . $ada_dok('KK') . ")";
+    $dok_disetuj = "(" . $dok_st('KTP', 'Disetujui') . " AND " . $dok_st('KK', 'Disetujui') . ")";
+    $dok_tolak   = "(" . $dok_st('KTP', 'Ditolak') . " OR " . $dok_st('KK', 'Ditolak') . ")";
+
+    switch ($filter_berkas) {
+        case 'lengkap':       $where[] = $dok_lengkap; break;
+        case 'belum':         $where[] = "(NOT " . $ada_dok('KTP') . " AND NOT " . $ada_dok('KK') . ")"; break;
+        case 'hanya_ktp':     $where[] = "(" . $ada_dok('KTP') . " AND NOT " . $ada_dok('KK') . ")"; break;
+        case 'hanya_kk':      $where[] = "(NOT " . $ada_dok('KTP') . " AND " . $ada_dok('KK') . ")"; break;
+        case 'tidak_lengkap': $where[] = "(NOT " . $dok_lengkap . ")"; break;
+        case 'disetujui':     $where[] = $dok_disetuj; break;
+        case 'ditolak':       $where[] = "($dok_lengkap AND NOT $dok_disetuj AND $dok_tolak)"; break;
+        case 'menunggu':      $where[] = "($dok_lengkap AND NOT $dok_disetuj AND NOT $dok_tolak)"; break;
+    }
+
+    switch ($filter_lapor) {
+        case 'disetujui': $where[] = "(p.status = 'Aktif' AND " . $lapor_st('Disetujui') . ")"; break;
+        case 'menunggu':  $where[] = "(p.status = 'Aktif' AND " . $lapor_st('Menunggu Verifikasi') . " AND NOT " . $lapor_st('Disetujui') . ")"; break;
+        case 'belum':     $where[] = "(p.status = 'Aktif' AND NOT " . $lapor_st('Menunggu Verifikasi') . " AND NOT " . $lapor_st('Disetujui') . ")"; break;
+    }
+
+    // Pencarian: NPK di SQL. Nama terenkripsi, jadi hanya kolom nama yang didekripsi saat kolom pencarian diisi.
+    if ($search !== '') {
+        $kandidat = $db->prepare("SELECT p.npk, p.nama FROM pensiunan p WHERE " . implode(' AND ', $where));
+        foreach ($params as $k => $v) {
+            $kandidat->bindValue(':' . $k, $v);
+        }
+        $kandidat->execute();
+        $cari = strtolower($search);
+        $npk_cocok = [];
+        foreach ($kandidat->fetchAll() as $k) {
+            $nama = strtolower((string)dekripsi($k['nama'], $k['npk']));
+            if (str_contains($nama, $cari) || str_contains(strtolower($k['npk']), $cari)) {
+                $npk_cocok[] = $k['npk'];
+            }
+        }
+        if (empty($npk_cocok)) {
+            $where[] = "1=0";
+        } else {
+            $nama_param = [];
+            foreach ($npk_cocok as $i => $npk_c) {
+                $params['npk' . $i] = $npk_c;
+                $nama_param[] = ':npk' . $i;
+            }
+            $where[] = "p.npk IN (" . implode(',', $nama_param) . ")";
+        }
     }
 
     $where_sql = implode(' AND ', $where);
 
     $sql_all = "
         SELECT p.*,
-            TIMESTAMPDIFF(YEAR, p.tgl_lhr, CURDATE()) as umur,
-            COALESCE(SUM(d.jns_dok = 'KTP'), 0) as jml_ktp,
-            COALESCE(SUM(d.jns_dok = 'KK'), 0)  as jml_kk
+            TIMESTAMPDIFF(YEAR, p.tgl_lhr, CURDATE()) AS umur,
+            (SELECT COUNT(*) FROM dokumen d WHERE d.npk = p.npk AND d.jns_dok = 'KTP') AS jml_ktp,
+            (SELECT COUNT(*) FROM dokumen d WHERE d.npk = p.npk AND d.jns_dok = 'KK') AS jml_kk
         FROM pensiunan p
-        LEFT JOIN dokumen d ON d.npk = p.npk
         WHERE $where_sql
-        GROUP BY p.npk
-        $having
-        ORDER BY p.nama ASC
     ";
     $stmt_all = $db->prepare($sql_all);
     foreach ($params as $k => $v) {
@@ -153,27 +190,8 @@ try {
     }
     unset($row);
 
-    // === Filter search (nama atau NPK) di PHP ===
-    if (!empty($search)) {
-        $search_lower = strtolower($search);
-        $semua_data = array_filter($semua_data, function ($row) use ($search_lower) {
-            return str_contains(strtolower($row['nama_plain']), $search_lower)
-                || str_contains(strtolower($row['npk']), $search_lower);
-        });
-        $semua_data = array_values($semua_data);
-    }
-
-    // === Filter berkas lanjutan (menunggu/ditolak/disetujui) ===
-    if (in_array($filter_berkas, ['menunggu', 'ditolak', 'disetujui'])) {
-        $map = [
-            'menunggu'  => 'Menunggu Verifikasi',
-            'ditolak'   => 'Ada yang Ditolak',
-            'disetujui' => 'Lengkap & Disetujui',
-        ];
-        $target = $map[$filter_berkas];
-        $semua_data = array_filter($semua_data, fn($row) => $row['status_berkas'] === $target);
-        $semua_data = array_values($semua_data);
-    }
+    // Urutkan berdasarkan nama setelah didekripsi (kolom nama terenkripsi tidak bisa diurutkan di SQL)
+    usort($semua_data, fn($a, $b) => strcasecmp((string)dekripsi($a['nama'], $a['npk']), (string)dekripsi($b['nama'], $b['npk'])));
 
 } catch (PDOException $e) {
     die("Gagal memproses data laporan.");
@@ -207,6 +225,8 @@ header("Expires: 0");
             border: 1px solid #E2E8F0;
         }
     </style>
+    <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/fonts.css">
+    <script defer src="/absensi_pensiunan_dev/static/js/modal-focus.js"></script>
 </head>
 <body>
 
