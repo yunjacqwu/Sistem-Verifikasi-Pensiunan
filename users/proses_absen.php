@@ -135,7 +135,6 @@ try {
     $hari_array  = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     $hari        = $hari_array[date('w')];
     $teks_waktu  = $hari . ', ' . date('d/m/Y H:i:s') . ' WIB';
-    $teks_npk    = 'NPK: ' . $npk;
 
     $lebar_foto  = imagesx($gambar_gd);
     $tinggi_foto = imagesy($gambar_gd);
@@ -146,7 +145,6 @@ try {
     // Pita background di bawah foto
     imagefilledrectangle($gambar_gd, 0, $tinggi_foto - 55, $lebar_foto, $tinggi_foto, $warna_bg);
     imagestring($gambar_gd, 5, 12, $tinggi_foto - 48, $teks_waktu, $warna_teks);
-    imagestring($gambar_gd, 4, 12, $tinggi_foto - 28, $teks_npk, $warna_teks);
 
     // Konversi kembali ke binary JPEG
     ob_start();

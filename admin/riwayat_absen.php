@@ -347,7 +347,7 @@ $query_string = http_build_query($query_params);
 
                                     <!-- Foto -->
                                     <td class="px-4 py-3 text-center">
-                                        <button @click="bukaFoto('<?= $row['id']; ?>', '<?= htmlspecialchars($row['nama_plain'], ENT_QUOTES); ?>', '<?= $row['kuartal_label'] . ' / ' . $row['tgl_fmt']; ?>', '<?= $row['jam_fmt']; ?>')"
+                                        <button @click="bukaFoto('<?= $row['id']; ?>', '<?= htmlspecialchars($row['npk'] . ' / ' . $row['nama_plain'], ENT_QUOTES); ?>', '<?= $row['kuartal_label'] . ' / ' . $row['tgl_fmt']; ?>', '<?= $row['jam_fmt']; ?>')"
                                                 class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-semibold bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -497,7 +497,7 @@ $query_string = http_build_query($query_params);
                                                 <!-- Foto Wajah -->
                                                 <td class="px-4 py-2.5 text-center">
                                                     <template x-if="riwayatDetail[detailNpk]?.[tahun]?.[q]">
-                                                        <button @click="bukaFoto(riwayatDetail[detailNpk][tahun][q].id, detailNama, q + ' / ' + tahun, riwayatDetail[detailNpk][tahun][q].jam)"
+                                                        <button @click="bukaFoto(riwayatDetail[detailNpk][tahun][q].id, detailNpk + ' / ' + detailNama, q + ' / ' + tahun, riwayatDetail[detailNpk][tahun][q].jam)"
                                                                 class="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 transition-colors">
                                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
