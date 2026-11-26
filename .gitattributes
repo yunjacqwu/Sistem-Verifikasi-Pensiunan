@@ -1,3 +1,6 @@
+# Semua file teks disimpan dengan LF di repo. Di Windows tetap CRLF di disk.
+* text=auto
+
 # File aset statis jangan diubah line ending oleh git (SRI dan hash harus tetap sama)
 static/vendor/** binary
 static/fonts/** binary
