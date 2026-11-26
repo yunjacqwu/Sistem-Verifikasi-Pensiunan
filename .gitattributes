@@ -1,0 +1,3 @@
+# File aset statis jangan diubah line ending oleh git (SRI dan hash harus tetap sama)
+static/vendor/** binary
+static/fonts/** binary
