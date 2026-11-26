@@ -268,7 +268,7 @@ $page_title = 'Dashboard';
             <div class="flex items-center gap-4">
                 <!-- Avatar inisial -->
                 <div class="h-14 w-14 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xl flex-shrink-0">
-                    <?= strtoupper(mb_substr($user['nama'], 0, 1)); ?>
+                    <?= htmlspecialchars(strtoupper(mb_substr($user['nama'], 0, 1)), ENT_QUOTES, 'UTF-8'); ?>
                 </div>
                 <div class="min-w-0">
                     <p class="font-bold text-slate-800 text-lg leading-tight truncate">
