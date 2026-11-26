@@ -152,12 +152,8 @@ function getActivityInfo(string $tabel, bool $is_user, array $kolom_list, array 
             return ['verb' => 'mereset', 'objek' => 'PIN Pensiunan', 'icon' => 'key', 'color' => 'orange', 'show_detail' => false];
         }
 
-        // Admin: cek apakah ini INSERT baru (semua nilai_lama kosong)
-        $semua_baru = true;
-        foreach ($details as $d) {
-            if (!empty($d['nilai_lama'])) { $semua_baru = false; break; }
-        }
-        if ($semua_baru) {
+        // Admin: pensiunan baru ditandai kolom INSERT. Perubahan biasa dengan nilai lama kosong bukan pensiunan baru.
+        if (in_array('INSERT', $kolom_list, true)) {
             return ['verb' => 'menambahkan', 'objek' => 'Pensiunan Baru', 'icon' => 'user-plus', 'color' => 'emerald', 'show_detail' => false];
         }
 
