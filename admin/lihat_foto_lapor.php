@@ -57,7 +57,7 @@ try {
     }
 
     $disposition = $mode === 'download'
-        ? "attachment; filename=\"lapor_{$row['npk']}_{$id}.{$ext}\""
+        ? "attachment; filename=\"lapor_{$id}.{$ext}\""
         : "inline";
 
     header("Content-Type: $mime");
