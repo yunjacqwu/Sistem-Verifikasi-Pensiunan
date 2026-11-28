@@ -56,6 +56,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!$admin) {
                     throw new PDOException('admin hilang');
                 }
+                if (!empty($_POST['ingat'])) {
+                    admin_perangkat_buat($db, (int)$admin['id']);
+                }
                 admin_2fa_selesai_login($db, $admin);
                 header('Location: dashboard.php');
                 exit;
@@ -109,6 +112,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                            class="w-full px-4 py-3 border border-slate-300 rounded-xl text-center text-xl font-mono tracking-widest focus:ring-2 focus:ring-blue-500 outline-none">
                     <p class="text-xs text-slate-500 mt-2">Kode berubah setiap 30 detik. Kode cadangan berbentuk XXXX-XXXX dan hanya bisa dipakai sekali.</p>
                 </div>
+                <label class="flex items-center gap-2 text-sm text-slate-600">
+                    <input type="checkbox" name="ingat" value="1" class="rounded border-slate-300">
+                    Ingat perangkat ini selama 7 hari
+                </label>
                 <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl">
                     Verifikasi
                 </button>

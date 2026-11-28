@@ -79,6 +79,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $daftar = $db->query("SELECT id, username, nama, totp_aktif FROM admin_sistem ORDER BY username")->fetchAll(PDO::FETCH_ASSOC);
+if ($pesan_sukses === '' && isset($_GET['sukses'])) { $pesan_sukses = (string)$_GET['sukses']; }
+if ($pesan_error === '' && isset($_GET['error'])) { $pesan_error = (string)$_GET['error']; }
 $current_page = 'kelola_admin.php';
 ?>
 <!DOCTYPE html>
@@ -137,6 +139,40 @@ $current_page = 'kelola_admin.php';
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+            </div>
+
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 max-w-2xl">
+                <h3 class="font-bold text-slate-800 mb-1">Perangkat tepercaya Anda</h3>
+                <p class="text-sm text-slate-500 mb-4">Perangkat yang dipilih "ingat perangkat ini" tidak akan diminta kode 2FA selama 7 hari. Cabut jika perangkat tidak lagi Anda pakai.</p>
+                <?php $daftar_perangkat = admin_perangkat_daftar($db, (int)$_SESSION['admin_id']); ?>
+                <?php if (!$daftar_perangkat): ?>
+                    <p class="text-sm text-slate-500 mb-4">Belum ada perangkat tepercaya.</p>
+                <?php else: ?>
+                    <ul class="divide-y divide-slate-200 mb-4">
+                        <?php foreach ($daftar_perangkat as $p): ?>
+                            <li class="py-3 flex items-start justify-between gap-4">
+                                <div class="min-w-0">
+                                    <p class="text-sm font-semibold text-slate-800">
+                                        <?= htmlspecialchars(admin_ringkas_ua($p['user_agent'])); ?>
+                                        <?php if ($p['ini']): ?>
+                                            <span class="ml-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Perangkat ini</span>
+                                        <?php endif; ?>
+                                    </p>
+                                    <p class="text-xs text-slate-500">Ditambahkan <?= htmlspecialchars($p['dibuat_pada']); ?> · Terakhir dipakai <?= htmlspecialchars($p['terakhir_dipakai'] ?? '-'); ?> · Berlaku sampai <?= htmlspecialchars($p['kedaluwarsa_pada']); ?></p>
+                                </div>
+                                <form method="POST" action="cabut_perangkat.php" class="shrink-0">
+                                    <?= csrf_field(); ?>
+                                    <input type="hidden" name="perangkat_id" value="<?= (int)$p['id']; ?>">
+                                    <button type="submit" class="text-sm text-red-600 hover:underline font-semibold">Cabut</button>
+                                </form>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+                <form method="POST" action="cabut_perangkat.php">
+                    <?= csrf_field(); ?>
+                    <button type="submit" class="bg-slate-700 hover:bg-slate-800 text-white font-bold px-5 py-2.5 rounded-lg text-sm">Cabut semua perangkat tepercaya saya</button>
+                </form>
             </div>
 
             <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 max-w-2xl">

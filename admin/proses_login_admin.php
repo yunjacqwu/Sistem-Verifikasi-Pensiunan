@@ -5,6 +5,7 @@ require_once '../config/koneksi.php';
 require_once '../config/audit.php';
 require_once '../config/csrf.php';
 require_once '../config/security.php';
+require_once '../config/admin_2fa.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header("Location: login.php");
@@ -42,6 +43,12 @@ try {
     }
 
     rate_limit_reset($db, 'admin'); // Reset counter login
+    // Perangkat tepercaya (cookie ingat perangkat) melewati langkah kode 2FA.
+    if ((int)$admin['totp_aktif'] === 1 && admin_perangkat_cek($db, (int)$admin['id'])) {
+        admin_2fa_selesai_login($db, $admin, 'Login berhasil (perangkat dipercaya)');
+        header('Location: dashboard.php');
+        exit;
+    }
     // 2FA wajib: sesi admin aktif hanya setelah kode TOTP atau kode cadangan benar.
     session_regenerate_id(true);
     $_SESSION['admin_2fa_tunggu'] = [
