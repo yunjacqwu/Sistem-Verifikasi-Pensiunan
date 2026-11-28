@@ -374,7 +374,7 @@ try {
                 <!-- Per page -->
                 <div class="mt-3 flex items-center gap-2 text-sm text-slate-600">
                     <span>Tampilkan</span>
-                    <select name="per_page" onchange="this.form.submit()"
+                    <select name="per_page" data-auto-submit
                             class="px-3 py-1.5 border border-slate-300 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
                         <?php foreach ([25,50,100,250,500] as $n): ?>
                             <option value="<?= $n; ?>" <?= $per_page === $n ? 'selected' : ''; ?>><?= $n; ?></option>

@@ -131,7 +131,7 @@ $uri_qr = $rahasia_tampil !== '' ? totp_uri($rahasia_tampil, $tunggu['username']
                     <p class="text-xs text-slate-500 mt-2">Jenis: berbasis waktu (TOTP). Nama akun: <?= htmlspecialchars($tunggu['username']); ?>.</p>
                     <div class="mt-4">
                         <p class="text-sm text-slate-600 mb-2">Atau pindai QR code ini dengan aplikasi autentikator:</p>
-                        <div id="qr-kode" class="flex justify-center bg-white p-3 border border-slate-200 rounded-xl"></div>
+                        <div id="qr-kode" data-uri="<?= htmlspecialchars($uri_qr, ENT_QUOTES, 'UTF-8'); ?>" class="flex justify-center bg-white p-3 border border-slate-200 rounded-xl"></div>
                     </div>
                 </div>
 
@@ -150,16 +150,7 @@ $uri_qr = $rahasia_tampil !== '' ? totp_uri($rahasia_tampil, $tunggu['username']
             <?php endif; ?>
         </div>
     </div>
-<script src="/absensi_pensiunan_dev/static/vendor/qrcode-generator-1.4.4.js" integrity="sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k"></script>
-<?php if (!empty($uri_qr) && !$kode_baru): ?>
-<script>
-  (function () {
-    var qr = qrcode(0, 'M');
-    qr.addData(<?= json_encode($uri_qr, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>);
-    qr.make();
-    document.getElementById('qr-kode').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 2 });
-  })();
-</script>
-<?php endif; ?>
+<script defer src="/absensi_pensiunan_dev/static/vendor/qrcode-generator-1.4.4.js" integrity="sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k"></script>
+<script defer src="/absensi_pensiunan_dev/static/js/setup-2fa.js"></script>
 </body>
 </html>
