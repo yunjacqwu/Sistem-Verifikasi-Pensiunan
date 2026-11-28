@@ -27,6 +27,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ok = false;
 
         try {
+            // Kode, catatan langkah TOTP, dan penyimpanan perangkat berjalan dalam satu transaksi.
+            // Jika salah satu gagal, semuanya dibatalkan dan kode belum dianggap terpakai.
+            $db->beginTransaction();
             if (preg_match('/^[0-9]{6}$/', $kode) || (preg_match('/^[0-9 ]{6,7}$/', $kode) && strlen($bersih) === 6)) {
                 // Kode 6 digit dari aplikasi autentikator
                 $st = $db->prepare("SELECT totp_secret, totp_langkah_terakhir FROM admin_sistem WHERE id = :id");
@@ -49,7 +52,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if ($ok) {
-                rate_limit_reset($db, $konteks);
                 $st = $db->prepare("SELECT id, username, nama FROM admin_sistem WHERE id = :id");
                 $st->execute(['id' => $tunggu['id']]);
                 $admin = $st->fetch(PDO::FETCH_ASSOC);
@@ -59,11 +61,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!empty($_POST['ingat'])) {
                     admin_perangkat_buat($db, (int)$admin['id']);
                 }
+                $db->commit();
+                rate_limit_reset($db, $konteks);
                 admin_2fa_selesai_login($db, $admin);
                 header('Location: dashboard.php');
                 exit;
             }
+            $db->rollBack();
         } catch (PDOException $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
             error_log('Verifikasi 2FA gagal: ' . get_class($e));
             $error = 'Terjadi kesalahan sistem. Silakan coba lagi.';
         }
