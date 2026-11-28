@@ -254,9 +254,10 @@ $query_string = http_build_query($query_params);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/absensi_pensiunan/favicon.png">
+    <link rel="icon" type="image/png" href="/absensi_pensiunan_dev/sikepen.png">
     <title>Data Pensiunan - Admin</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/app.css">
+    <script src="/absensi_pensiunan_dev/static/js/data-pensiunan.js"></script>
     <script defer src="/absensi_pensiunan_dev/static/vendor/alpine-3.14.1.min.js" integrity="sha384-l8f0VcPi/M1iHPv8egOnY/15TDwqgbOR1anMIJWvU6nLRgZVLTLSaNqi/TOoT5Fh"></script>
     <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/fonts.css">
     <script defer src="/absensi_pensiunan_dev/static/js/modal-focus.js"></script>
@@ -392,7 +393,7 @@ $query_string = http_build_query($query_params);
                     <!-- Jumlah baris -->
                     <div class="flex items-center gap-2 text-sm text-slate-600">
                         <span>Tampilkan</span>
-                        <select name="per_page" onchange="this.form.submit()"
+                        <select name="per_page" data-auto-submit
                                 class="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
                             <?php foreach ([25,50,100,250,500] as $n): ?>
                                 <option value="<?= $n; ?>" <?= $per_page === $n ? 'selected' : ''; ?>><?= $n; ?></option>
@@ -1171,136 +1172,7 @@ $query_string = http_build_query($query_params);
     </div>
 </div>
 
-<script>
-function pensiunanApp() {
-    return {
-        modalDetail:  false,
-        modalReset:   false,
-        modalNonaktif: false,
-        modalTambah:  false,
-        tab:          'identitas',
-        editMode:     false,
-        aktif:        {},
-        resetNpk:     '',
-        resetPinHasil: '',
-        resetPinError: '',
-        resetPinLoading: false,
-        nonaktifNpk:  '',
-        nonaktifStatus: '',
-        riwayatLapor: <?= json_encode($riwayat_lapor); ?>,
-        tahunRange:   <?= json_encode($tahun_range); ?>,
-        dokumenMap: <?= json_encode($dokumen_map_page); ?>,
-        modalDok:   false,
-        dokId:      '',
-        dokSrc:     '',
-        dokPdf:     false,
-        dokNama:    '',
-        dokJenis:   '',
-        dokLoading: false,
-        modalAlihStatus: false,
-        alihNpk:         '',
-        alihNama:        '',
-        alihJenisPenerima: '',
-        alihValidasiUmur:  '',
-
-        bukaAlihStatus(npk, nama) {
-            this.alihNpk             = npk;
-            this.alihNama            = nama;
-            this.alihJenisPenerima   = '';
-            this.alihValidasiUmur    = '';
-            this.modalAlihStatus     = true;
-        },
-
-        hitungUmur(tgl_lahir) {
-            if (!tgl_lahir) return;
-            const today = new Date();
-            const lahir = new Date(tgl_lahir);
-            const umur  = today.getFullYear() - lahir.getFullYear()
-                        - (today < new Date(today.getFullYear(), lahir.getMonth(), lahir.getDate()) ? 1 : 0);
-
-            if (this.alihJenisPenerima === 'Anak' && umur >= 25) {
-                this.alihValidasiUmur = 'Penerima anak tidak memenuhi syarat (usia ' + umur + ' tahun ≥ 25 tahun).';
-            } else {
-                this.alihValidasiUmur = '';
-            }
-        },
-
-        bukaDokumen(id, nama, jenis) {
-            this.dokId      = id;
-            this.dokNama    = nama;
-            this.dokJenis   = jenis;
-            this.dokSrc     = '';
-            this.dokPdf     = false;
-            this.dokLoading = true;
-            this.modalDok   = true;
-
-            fetch('lihat_dokumen.php?id=' + id)
-                .then(r => {
-                    const ct = r.headers.get('Content-Type') || '';
-                    if (ct.includes('pdf')) {
-                        this.dokPdf     = true;
-                        this.dokLoading = false;
-                        return null;
-                    }
-                    return r.blob();
-                })
-                .then(blob => {
-                    if (blob) {
-                        this.dokSrc     = URL.createObjectURL(blob);
-                        this.dokLoading = false;
-                    }
-                })
-                .catch(() => { this.dokLoading = false; });
-        },
-
-        async bukaDetail(npk) {
-            try {
-                const r = await fetch('lihat_profil.php?npk=' + encodeURIComponent(npk));
-                if (!r.ok) throw new Error('HTTP ' + r.status);
-                this.aktif       = await r.json();
-                this.aktif.nama_penerima_asli = this.aktif.nama_asli_plain || '';
-                this.tab         = 'identitas';
-                this.editMode    = false;
-                this.modalDetail = true;
-            } catch (e) {
-                alert('Data profil tidak bisa dibuka. Coba lagi.');
-            }
-        },
-        async resetPinKirim(form) {
-            this.resetPinLoading = true;
-            this.resetPinError = '';
-            try {
-                const r = await fetch('proses_reset_pin.php', {
-                    method: 'POST',
-                    body: new FormData(form),
-                    headers: { 'Accept': 'application/json' },
-                });
-                const data = await r.json().catch(() => null);
-                if (!r.ok || !data || !data.pin) {
-                    throw new Error((data && data.error) || 'Gagal reset PIN. Coba lagi.');
-                }
-                this.resetPinHasil = data.pin;
-            } catch (e) {
-                this.resetPinError = e.message;
-            } finally {
-                this.resetPinLoading = false;
-            }
-        },
-
-        bukaResetPin(npk) {
-            this.resetNpk = npk;
-            this.resetPinHasil = '';
-            this.resetPinError = '';
-            this.modalReset = true;
-        },
-        bukaNonaktif(npk, status) {
-            this.nonaktifNpk    = npk;
-            this.nonaktifStatus = status;
-            this.modalNonaktif  = true;
-        },
-    }
-}
-</script>
+<script type="application/json" id="data-awal"><?= json_encode(['riwayatLapor' => $riwayat_lapor, 'tahunRange' => $tahun_range, 'dokumenMap' => $dokumen_map_page], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?></script>
 
 </body>
 </html>

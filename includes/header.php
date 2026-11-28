@@ -27,21 +27,12 @@ if ($is_user && isset($db)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/absensi_pensiunan/favicon.png">
+    <link rel="icon" type="image/png" href="/absensi_pensiunan_dev/sikepen.png">
     <title><?= isset($page_title) ? htmlspecialchars($page_title) . ' - ' : ''; ?>Dana Pensiun Pegawai Perum Peruri</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#1d4ed8'
-                    }
-                }
-            }
-        }
-    </script>
+    <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/app.css">
+    <?php if (function_exists('csrf_token')): ?><meta name="csrf-token" content="<?= csrf_token(); ?>"><?php endif; ?>
     <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/fonts.css">
+    <script defer src="/absensi_pensiunan_dev/static/js/ui.js"></script>
 </head>
 <body class="bg-slateate-100 font-sans antialiased text-slate-800 min-h-screen flex flex-col">
 
@@ -74,7 +65,7 @@ if ($is_user && isset($db)) {
                 <?php endif; ?>
 
                 <!-- Tombol logout — trigger modal -->
-                <button onclick="document.getElementById('modal-logout').classList.remove('hidden')"
+                <button data-modal-buka="modal-logout"
                         class="inline-flex items-center gap-2 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-semibold border border-red-200 transition-colors shadow-sm">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -93,7 +84,7 @@ if ($is_user && isset($db)) {
     <div id="modal-logout" class="hidden fixed inset-0 z-[999] flex items-center justify-center p-4">
         <!-- Backdrop -->
         <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"
-             onclick="document.getElementById('modal-logout').classList.add('hidden')"></div>
+             data-modal-tutup="modal-logout"></div>
 
         <!-- Modal box -->
         <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col items-center text-center gap-4 animate-fade-in">
@@ -115,7 +106,7 @@ if ($is_user && isset($db)) {
 
             <!-- Tombol aksi -->
             <div class="flex gap-3 w-full mt-2">
-                <button onclick="document.getElementById('modal-logout').classList.add('hidden')"
+                <button data-modal-tutup="modal-logout"
                         class="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50 transition-colors text-sm">
                     Batal
                 </button>

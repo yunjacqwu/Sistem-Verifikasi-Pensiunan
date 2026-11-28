@@ -34,10 +34,10 @@ if (session_status() === PHP_SESSION_NONE) {
 if (!headers_sent()) {
     $csp = "default-src 'self'; "
         . "base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; "
-        . "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
-        . "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
-        . "img-src 'self' data: blob:; font-src 'self' data: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
-        . "connect-src 'self' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+        . "script-src 'self' 'unsafe-eval'; "
+        . "style-src 'self' 'unsafe-inline'; "
+        . "img-src 'self' data: blob:; font-src 'self' data:; "
+        . "connect-src 'self'; "
         . "media-src 'self' blob:; upgrade-insecure-requests";
     header('Content-Security-Policy: ' . $csp);
     header('X-Frame-Options: SAMEORIGIN');
@@ -52,4 +52,16 @@ if (!headers_sent()) {
 // Inisialisasi session (dilakukan setelah session config di atas)
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
+}
+
+// Batas waktu sesi admin tidak aktif (30 menit). Sesi yang lewat batas dibersihkan,
+// lalu halaman admin akan mengarahkan ke login.
+const ADMIN_IDLE_DETIK = 1800;
+if (isset($_SESSION['admin_logged_in'])) {
+    $terakhir = (int)($_SESSION['admin_terakhir'] ?? time());
+    if (time() - $terakhir > ADMIN_IDLE_DETIK) {
+        unset($_SESSION['admin_logged_in'], $_SESSION['admin_id'], $_SESSION['admin_username'], $_SESSION['admin_nama'], $_SESSION['admin_terakhir']);
+    } else {
+        $_SESSION['admin_terakhir'] = time();
+    }
 }

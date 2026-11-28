@@ -90,9 +90,10 @@ $query_string = http_build_query($query_params);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/absensi_pensiunan/favicon.png">
+    <link rel="icon" type="image/png" href="/absensi_pensiunan_dev/sikepen.png">
     <title>Kelola Dokumen - Admin</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/app.css">
+    <script src="/absensi_pensiunan_dev/static/js/kelola-dokumen.js"></script>
     <script defer src="/absensi_pensiunan_dev/static/vendor/alpine-3.14.1.min.js" integrity="sha384-l8f0VcPi/M1iHPv8egOnY/15TDwqgbOR1anMIJWvU6nLRgZVLTLSaNqi/TOoT5Fh"></script>
     <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/fonts.css">
     <script defer src="/absensi_pensiunan_dev/static/js/modal-focus.js"></script>
@@ -165,7 +166,7 @@ $query_string = http_build_query($query_params);
                 <!-- Per page -->
                 <div class="mt-3 flex items-center gap-2 text-sm text-slate-600">
                     <span>Tampilkan</span>
-                    <select name="per_page" onchange="this.form.submit()"
+                    <select name="per_page" data-auto-submit
                             class="px-3 py-1.5 border border-slate-300 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
                         <?php foreach ([25,50,100,250,500] as $n): ?>
                             <option value="<?= $n; ?>" <?= $per_page === $n ? 'selected' : ''; ?>><?= $n; ?></option>
@@ -436,62 +437,6 @@ $query_string = http_build_query($query_params);
     </div>
 </div>
 
-<script>
-function dokumenApp() {
-    return {
-        modalDok:     false,
-        modalTolak:   false,
-        dokId:        '',
-        dokSrc:       '',
-        dokPdf:       false,
-        dokNama:      '',
-        dokJenis:     '',
-        dokLoading:   false,
-        tolakId:      '',
-        tolakNpk:     '',
-        catatanFinal: '',
-        customCatatan: false,
-
-        bukaDokumen(id, nama, jenis) {
-            this.dokId      = id;
-            this.dokNama    = nama;
-            this.dokJenis   = jenis;
-            this.dokSrc     = '';
-            this.dokPdf     = false;
-            this.dokLoading = true;
-            this.modalDok   = true;
-
-            fetch('lihat_dokumen.php?id=' + id)
-                .then(r => {
-                    const ct = r.headers.get('Content-Type') || '';
-                    if (ct.includes('pdf')) {
-                        this.dokPdf     = true;
-                        this.dokLoading = false;
-                        return null;
-                    }
-                    return r.blob();
-                })
-                .then(blob => {
-                    if (blob) {
-                        this.dokSrc     = URL.createObjectURL(blob);
-                        this.dokLoading = false;
-                    }
-                })
-                .catch(() => {
-                    this.dokLoading = false;
-                });
-        },
-
-        bukaTolak(id, npk) {
-            this.tolakId      = id;
-            this.tolakNpk     = npk;
-            this.catatanFinal = '';
-            this.customCatatan = false;
-            this.modalTolak   = true;
-        },
-    }
-}
-</script>
 
 </body>
 </html>

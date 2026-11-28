@@ -32,9 +32,11 @@ $menu = [
     'audit_log.php'        => ['label' => 'Audit Log',          'badge' => 0,            'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />'],
     'import_pensiunan.php' => ['label' => 'Import Data',        'badge' => 0,            'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M12 12v9m0-9l3 3m-3-3l-3 3"/>'],
     'monitoring_lapor.php' => ['label' => 'Monitoring',         'badge' => 0,            'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>'],
+    'kelola_admin.php'     => ['label' => 'Kelola Admin',       'badge' => 0,            'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />'],
 ];
 ?>
 
+<script defer src="/absensi_pensiunan_dev/static/js/ui.js"></script>
 <aside class="w-64 bg-slate-900 text-white flex flex-col flex-shrink-0">
 
     <!-- Judul -->
@@ -63,7 +65,7 @@ $menu = [
 
     <!-- Tombol logout -->
     <div class="p-3 border-t border-slate-700">
-        <button onclick="document.getElementById('modal-logout-admin').classList.remove('hidden')"
+        <button data-modal-buka="modal-logout-admin"
                 class="flex items-center justify-center w-full px-4 py-2.5 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition-colors text-sm font-medium">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -77,7 +79,7 @@ $menu = [
 <!-- Modal logout (tetap sama) -->
 <div id="modal-logout-admin" class="hidden fixed inset-0 z-[999] flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"
-         onclick="document.getElementById('modal-logout-admin').classList.add('hidden')"></div>
+         data-modal-tutup="modal-logout-admin"></div>
     <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col items-center text-center gap-4">
         <div class="h-16 w-16 rounded-full bg-red-100 flex items-center justify-center">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -89,7 +91,7 @@ $menu = [
             <p class="text-slate-500 text-sm mt-1">Pastikan semua pekerjaan sudah tersimpan sebelum keluar.</p>
         </div>
         <div class="flex gap-3 w-full mt-2">
-            <button onclick="document.getElementById('modal-logout-admin').classList.add('hidden')"
+            <button data-modal-tutup="modal-logout-admin"
                     class="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50 transition-colors text-sm">
                 Batal
             </button>

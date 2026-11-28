@@ -341,7 +341,7 @@ $page_title = 'Dashboard';
                                class="w-full px-4 py-3 border border-slate-300 rounded-xl text-center text-2xl font-mono tracking-[1em] focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
                 </div>
-                <button onclick="submitGantiPin()"
+                <button data-aksi="ganti-pin"
                         class="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-colors">
                     Simpan PIN Baru
                 </button>
@@ -356,7 +356,7 @@ $page_title = 'Dashboard';
                 </div>
                 <p class="font-bold text-slate-800">PIN berhasil diganti!</p>
                 <p class="text-sm text-slate-500">Pastikan Anda sudah mencatat PIN baru Anda.</p>
-                <button onclick="tutupModal()"
+                <button data-aksi="tutup-modal"
                         class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition-colors">
                     Lanjut ke Dashboard
                 </button>
@@ -366,54 +366,7 @@ $page_title = 'Dashboard';
     </div>
 </div>
 
-<script>
-function submitGantiPin() {
-    const pin_baru       = document.getElementById('pin_baru').value.trim();
-    const pin_konfirmasi = document.getElementById('pin_konfirmasi').value.trim();
-    const error_div      = document.getElementById('error-pin');
-
-    error_div.classList.add('hidden');
-    error_div.textContent = '';
-
-    if (pin_baru.length !== 6 || !/^\d{6}$/.test(pin_baru)) {
-        error_div.textContent = 'PIN harus berupa 6 digit angka.';
-        error_div.classList.remove('hidden');
-        return;
-    }
-    if (pin_baru !== pin_konfirmasi) {
-        error_div.textContent = 'Konfirmasi PIN tidak cocok.';
-        error_div.classList.remove('hidden');
-        return;
-    }
-
-    fetch('proses_ganti_pin.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '<?= csrf_token(); ?>' },
-        body: JSON.stringify({ pin_baru: pin_baru, csrf_token: '<?= csrf_token(); ?>' })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.sukses) {
-            document.getElementById('form-pin').classList.add('hidden');
-            document.getElementById('sukses-pin').classList.remove('hidden');
-        } else {
-            error_div.textContent = data.pesan || 'Terjadi kesalahan.';
-            error_div.classList.remove('hidden');
-        }
-    })
-    .catch(() => {
-        error_div.textContent = 'Terjadi kesalahan jaringan. Coba lagi.';
-        error_div.classList.remove('hidden');
-    });
-}
-
-function tutupModal() {
-    document.getElementById('modal-ganti-pin').remove();
-    const url = new URL(window.location);
-    url.searchParams.delete('first_login');
-    window.history.replaceState({}, '', url);
-}
-</script>
+<script defer src="/absensi_pensiunan_dev/static/js/dashboard.js"></script>
 <?php endif; ?>
 
 <?php include '../includes/footer.php'; ?>

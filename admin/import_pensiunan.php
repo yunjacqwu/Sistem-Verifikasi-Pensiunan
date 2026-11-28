@@ -17,9 +17,9 @@ if (!isset($_SESSION['admin_logged_in'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/absensi_pensiunan/favicon.png">
+    <link rel="icon" type="image/png" href="/absensi_pensiunan_dev/sikepen.png">
     <title>Import Data Pensiunan - Admin</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/app.css">
     <link href="/absensi_pensiunan_dev/static/vendor/daisyui-4.12.10.full.min.css" integrity="sha384-yxrQVVFFRZdq4Z/YbeTDzSYbn1W6VnVonm2vAgnxtxUMehcccE4k2NufOz2tJnOe" rel="stylesheet" type="text/css" />
     <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/fonts.css">
     <script defer src="/absensi_pensiunan_dev/static/js/modal-focus.js"></script>
@@ -154,37 +154,7 @@ if (!isset($_SESSION['admin_logged_in'])) {
                 </div>
             </div>
 
-            <script>
-            document.getElementById('form-import').addEventListener('submit', function(e) {
-                const overlay = document.getElementById('overlay-import');
-                const progressBar = document.getElementById('overlay-progress-bar');
-                const progressText = document.getElementById('overlay-progress-text');
-
-                overlay.classList.remove('hidden');
-
-                const pesan = [
-                    'Membaca file Excel...',
-                    'Memvalidasi data...',
-                    'Mengenkripsi data pensiunan...',
-                    'Menyimpan ke database...',
-                    'Data dalam jumlah besar bisa memakan waktu lebih lama, mohon tunggu...',
-                ];
-
-                let progress = 5;
-                let pesanIndex = 0;
-
-                const interval = setInterval(() => {
-                    if (progress < 88) {
-                        progress += (88 - progress) * 0.08;
-                        progressBar.style.width = progress + '%';
-                    }
-                    if (pesanIndex < pesan.length - 1 && progress > (pesanIndex + 1) * 18) {
-                        pesanIndex++;
-                        progressText.textContent = pesan[pesanIndex];
-                    }
-                }, 400);
-            });
-            </script>
+            <script defer src="/absensi_pensiunan_dev/static/js/import-pensiunan.js"></script>
 
         </main>
     </div>
