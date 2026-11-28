@@ -2,13 +2,19 @@
 // file: config/crypto.php
 
 require_once __DIR__ . '/env.php';
-loadEnv(__DIR__ . '/../.env');
 
-$secret_key = getenv('AES_SECRET_KEY');
-if (empty($secret_key)) {
-    throw new RuntimeException('AES_SECRET_KEY tidak ditemukan di .env');
+// .env dibaca saat kunci pertama kali dibutuhkan, bukan saat file ini di-include.
+function aesSecretKey(): string {
+    static $kunci = null;
+    if ($kunci === null) {
+        loadEnv(__DIR__ . '/../.env');
+        $kunci = (string)getenv('AES_SECRET_KEY');
+        if (empty($kunci)) {
+            throw new RuntimeException('AES_SECRET_KEY tidak ditemukan di .env');
+        }
+    }
+    return $kunci;
 }
-define('AES_SECRET_KEY', $secret_key);
 
 /**
  * Membuat kunci AES unik per pengguna
@@ -16,7 +22,7 @@ define('AES_SECRET_KEY', $secret_key);
  * Hasilnya: 32 byte = 256 bit
  */
 function buatKunci(string $npk): string {
-    return hash('sha256', AES_SECRET_KEY . $npk, true);
+    return hash('sha256', aesSecretKey() . $npk, true);
 }
 
 /**

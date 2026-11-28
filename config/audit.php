@@ -3,9 +3,14 @@
 // dan row_hash = HMAC-SHA256(AUDIT_HMAC_KEY, isi baris + prev_hash). Perubahan di tengah rantai terdeteksi.
 // Belum dipakai oleh penulisan audit yang ada: fungsi ini hanya disambungkan setelah skema diubah dan dibackfill.
 require_once __DIR__ . '/env.php';
-loadEnv(__DIR__ . '/../.env');
 
+// .env dibaca saat kunci pertama kali dibutuhkan, bukan saat file ini di-include.
 function audit_kunci(): string {
+    static $dimuat = false;
+    if (!$dimuat) {
+        loadEnv(__DIR__ . '/../.env');
+        $dimuat = true;
+    }
     $k = (string)getenv('AUDIT_HMAC_KEY');
     if (strlen($k) < 32) {
         throw new RuntimeException('AUDIT_HMAC_KEY belum diset atau terlalu pendek');
