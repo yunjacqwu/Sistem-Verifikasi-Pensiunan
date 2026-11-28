@@ -29,9 +29,8 @@ if ($is_user && isset($db)) {
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="/absensi_pensiunan_dev/sikepen.png">
     <title><?= isset($page_title) ? htmlspecialchars($page_title) . ' - ' : ''; ?>Dana Pensiun Pegawai Perum Peruri</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/app.css">
     <?php if (function_exists('csrf_token')): ?><meta name="csrf-token" content="<?= csrf_token(); ?>"><?php endif; ?>
-    <script src="/absensi_pensiunan_dev/static/js/tailwind-config.js"></script>
     <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/fonts.css">
     <script defer src="/absensi_pensiunan_dev/static/js/ui.js"></script>
 </head>

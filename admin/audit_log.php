@@ -308,7 +308,7 @@ try {
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="/absensi_pensiunan_dev/sikepen.png">
     <title>Audit Log - Admin</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/app.css">
     <script defer src="/absensi_pensiunan_dev/static/vendor/alpine-3.14.1.min.js" integrity="sha384-l8f0VcPi/M1iHPv8egOnY/15TDwqgbOR1anMIJWvU6nLRgZVLTLSaNqi/TOoT5Fh"></script>
     <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/fonts.css">
     <script defer src="/absensi_pensiunan_dev/static/js/modal-focus.js"></script>

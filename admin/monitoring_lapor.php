@@ -55,7 +55,7 @@ $label_kuartal = [1=>'Q1 (Jan–Mar)', 2=>'Q2 (Apr–Jun)', 3=>'Q3 (Jul–Sep)',
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="/absensi_pensiunan_dev/sikepen.png">
     <title>Monitoring Lapor Diri - Admin</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/app.css">
     <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/fonts.css">
     <script defer src="/absensi_pensiunan_dev/static/js/modal-focus.js"></script>
 </head>

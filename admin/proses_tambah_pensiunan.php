@@ -97,7 +97,7 @@ try {
     $nama_html = htmlspecialchars($nama, ENT_QUOTES, 'UTF-8');
     $npk_html = htmlspecialchars($npk, ENT_QUOTES, 'UTF-8');
     $pin_html = htmlspecialchars($pin_awal, ENT_QUOTES, 'UTF-8');
-    echo '<!doctype html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>PIN Sementara - Admin</title><script src="https://cdn.tailwindcss.com"></script>    <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/fonts.css">
+    echo '<!doctype html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>PIN Sementara - Admin</title><link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/app.css">    <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/fonts.css">
     <script defer src="/absensi_pensiunan_dev/static/js/modal-focus.js"></script>
 </head>';
     echo '<body class="min-h-screen bg-slate-100 flex items-center justify-center p-4"><main class="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">';

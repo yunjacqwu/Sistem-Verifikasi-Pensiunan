@@ -19,7 +19,7 @@ if (!isset($_SESSION['admin_logged_in'])) {
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="/absensi_pensiunan_dev/sikepen.png">
     <title>Import Data Pensiunan - Admin</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/app.css">
     <link href="/absensi_pensiunan_dev/static/vendor/daisyui-4.12.10.full.min.css" integrity="sha384-yxrQVVFFRZdq4Z/YbeTDzSYbn1W6VnVonm2vAgnxtxUMehcccE4k2NufOz2tJnOe" rel="stylesheet" type="text/css" />
     <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/fonts.css">
     <script defer src="/absensi_pensiunan_dev/static/js/modal-focus.js"></script>

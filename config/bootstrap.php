@@ -34,10 +34,10 @@ if (session_status() === PHP_SESSION_NONE) {
 if (!headers_sent()) {
     $csp = "default-src 'self'; "
         . "base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; "
-        . "script-src 'self' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
-        . "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
-        . "img-src 'self' data: blob:; font-src 'self' data: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
-        . "connect-src 'self' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+        . "script-src 'self' 'unsafe-eval'; "
+        . "style-src 'self' 'unsafe-inline'; "
+        . "img-src 'self' data: blob:; font-src 'self' data:; "
+        . "connect-src 'self'; "
         . "media-src 'self' blob:; upgrade-insecure-requests";
     header('Content-Security-Policy: ' . $csp);
     header('X-Frame-Options: SAMEORIGIN');

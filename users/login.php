@@ -16,7 +16,7 @@ if (isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'] === true) 
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="/absensi_pensiunan_dev/sikepen.png">
     <title>Portal Pensiunan - Dana Pensiun Pegawai Perum Peruri</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/app.css">
     <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/fonts.css">
 </head>
 <body class="bg-slate-100 font-sans antialiased min-h-screen flex items-center justify-center p-4">
