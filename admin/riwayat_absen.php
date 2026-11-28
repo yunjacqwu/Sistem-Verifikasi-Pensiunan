@@ -171,7 +171,7 @@ $query_string = http_build_query($query_params);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/absensi_pensiunan/favicon.png">
+    <link rel="icon" type="image/png" href="/absensi_pensiunan_dev/sikepen.png">
     <title>Riwayat Lapor Diri - Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="/absensi_pensiunan_dev/static/vendor/alpine-3.14.1.min.js" integrity="sha384-l8f0VcPi/M1iHPv8egOnY/15TDwqgbOR1anMIJWvU6nLRgZVLTLSaNqi/TOoT5Fh"></script>

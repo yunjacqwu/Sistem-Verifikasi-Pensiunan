@@ -31,7 +31,7 @@ if (empty($username) || empty($password)) {
 }
 
 try {
-    $stmt = $db->prepare("SELECT id, username, pass_hash, nama FROM admin_sistem WHERE username = :username LIMIT 1");
+    $stmt = $db->prepare("SELECT id, username, pass_hash, nama, totp_aktif FROM admin_sistem WHERE username = :username LIMIT 1");
     $stmt->execute(['username' => $username]);
     $admin = $stmt->fetch();
 
@@ -42,16 +42,16 @@ try {
     }
 
     rate_limit_reset($db, 'admin'); // Reset counter login
+    // 2FA wajib: sesi admin aktif hanya setelah kode TOTP atau kode cadangan benar.
     session_regenerate_id(true);
-    // Catat login admin ke audit sebelum sesi ditandai aktif. Admin tidak punya NPK, jadi npk dikosongkan.
-        audit_tulis($db, null, 'admin_sistem', 'login', null, 'Login berhasil', $admin['username']);
-
-    $_SESSION['admin_logged_in'] = true;
-    $_SESSION['admin_id']        = $admin['id'];
-    $_SESSION['admin_username']  = $admin['username'];
-    $_SESSION['admin_nama']      = $admin['nama'];
-
-    header("Location: dashboard.php");
+    $_SESSION['admin_2fa_tunggu'] = [
+        'id'       => (int)$admin['id'],
+        'username' => $admin['username'],
+        'nama'     => $admin['nama'],
+        'aktif'    => (int)$admin['totp_aktif'],
+        'waktu'    => time(),
+    ];
+    header("Location: " . ((int)$admin['totp_aktif'] === 1 ? 'verifikasi_2fa.php' : 'setup_2fa.php'));
     exit;
 
 } catch (PDOException $e) {

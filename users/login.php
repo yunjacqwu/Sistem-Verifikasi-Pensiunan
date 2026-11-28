@@ -14,7 +14,7 @@ if (isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'] === true) 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/absensi_pensiunan/favicon.png">
+    <link rel="icon" type="image/png" href="/absensi_pensiunan_dev/sikepen.png">
     <title>Portal Pensiunan - Dana Pensiun Pegawai Perum Peruri</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/absensi_pensiunan_dev/static/css/fonts.css">

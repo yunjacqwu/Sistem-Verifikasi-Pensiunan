@@ -53,3 +53,15 @@ if (!headers_sent()) {
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+
+// Batas waktu sesi admin tidak aktif (30 menit). Sesi yang lewat batas dibersihkan,
+// lalu halaman admin akan mengarahkan ke login.
+const ADMIN_IDLE_DETIK = 1800;
+if (isset($_SESSION['admin_logged_in'])) {
+    $terakhir = (int)($_SESSION['admin_terakhir'] ?? time());
+    if (time() - $terakhir > ADMIN_IDLE_DETIK) {
+        unset($_SESSION['admin_logged_in'], $_SESSION['admin_id'], $_SESSION['admin_username'], $_SESSION['admin_nama'], $_SESSION['admin_terakhir']);
+    } else {
+        $_SESSION['admin_terakhir'] = time();
+    }
+}
